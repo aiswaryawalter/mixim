@@ -59,6 +59,7 @@ class Simulation(object):
         time_stable = ((1 / self.rate_client) / self.n_layers) * self.mu + 2
         if self.mix_type == 'poisson':
             self.n_targets = int(((self.SimDuration - time_stable) ) / 2)
+            print(f"n_targets={self.n_targets}")
         else:
             self.n_targets = int((self.SimDuration - self.flush_timeout - 1) / 4)
         self.network = Network(self.mix_type, self.n_layers, self.n_mixes_per_layer, self.corrupt,
@@ -82,6 +83,7 @@ class Simulation(object):
         self.numberrounds = []
 
     def set_stable_mix(self, index):
+        print(f"[{self.env.now}] Entered set_stable_mix for index={index}")
         if self.mix_type == 'pool':
             yield self.env.timeout(10)
             self.startAttack = True
@@ -92,6 +94,8 @@ class Simulation(object):
         if all(self.stableMixL1):
             yield self.env.timeout(2)
             self.startAttack = True
+        print(f"[{self.env.now}] set_stable_mix done => startAttack={self.startAttack}")
+
 
     def set_stable_chain(self, position):
         if self.mix_type == 'pool':
@@ -132,6 +136,25 @@ class Simulation(object):
 
             for client in self.clientsSet:
                 client.otherClients = self.clientsSet - {client}
+        elif self.topology == 'free route':
+            for client_no in range(self.n_clients):
+                client = Client.Client(
+                    self,
+                    client_no,
+                    self.network.network_dict,  # So they can see all mixes
+                    self.rate_client,
+                    self.mu,
+                    probabilityDistribution,
+                    n_targets,
+                    client_dummies,
+                    rate_client_dummies,
+                    Log
+                )
+                self.clientsSet.add(client)
+
+            for client in self.clientsSet:
+                client.other_clients = self.clientsSet - {client}
+
 
     def run(self, time=None):
         # Print statements and results from here

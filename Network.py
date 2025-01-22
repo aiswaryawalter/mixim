@@ -91,6 +91,54 @@ class Network:
                 self.list_cascades[n] = cascade
             for n, list in self.list_cascades.items():
                 print('Chain number', n, ':', list)
+        elif self.topology == 'free route':
+            # 1) Create a list (or set) of mixes
+            self.network_dict[1] = []  # if we treat everything as "layer 1"
+            self.all_mixes = set()
+            Nbr_Corruption = 0
+            
+            for i in range(self.mixesPerLayer):  # or however many mixes you want
+                # Decide if corrupt or honest
+                if self.unifrom_corruption:
+                    # (Same logic as 'stratified' to spread corruption)
+                    varCorrupt = (Nbr_Corruption < self.corrupt)
+                    if varCorrupt:
+                        Nbr_Corruption += 1
+                else:
+                    # or pick randomly until you reach self.corrupt
+                    if Nbr_Corruption < self.corrupt:
+                        varCorrupt = random.choice([True, False])
+                        if varCorrupt:
+                            Nbr_Corruption += 1
+                    else:
+                        varCorrupt = False
+
+                # Create the mix (poisson, timed, or pool) exactly like stratified:
+                mix = self.get_mixnode(
+                    self.mix_type,
+                    i+1,                 # mix ID
+                    1,                   # position = 1 if no layers
+                    self.numberTargets,
+                    varCorrupt,
+                    weight_mix=1.0/self.mixesPerLayer
+                )
+                self.all_mixes.add(mix)
+                self.network_dict[1].append(mix)
+
+            # 2) Define a connectivity or neighbor relationship for "free route"
+            #    For example, each mix can have some random neighbors:
+            list_of_mixes = self.network_dict[1]
+            for mix in list_of_mixes:
+                # Suppose we want each mix to have k random neighbors
+                # or all the other mixes if "fully_connected=True"
+                if self.fully_connected:
+                    mix.neighbors = [m for m in list_of_mixes if m != mix]
+                else:
+                    # for partial connectivity, pick some random subset:
+                    possible_neighbors = [m for m in list_of_mixes if m != mix]
+                    # pick e.g. 2 random neighbors:
+                    mix.neighbors = random.sample(possible_neighbors, k=2)
+
 
     def get_mixnode(self, mix_type, id, position, numberTargets, corrupt, weight_mix):
         if mix_type == 'poisson':

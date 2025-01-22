@@ -27,6 +27,9 @@ class Client:
                 self.all_mixes += self.network_dict[layer]
         elif self.simulation.topology == 'XRD':
             self.set_chains = self.network_dict
+        if self.simulation.topology == 'free route':
+            for layer in range(1, len(self.network_dict) + 1):
+                self.all_mixes += self.network_dict[layer]
         self.env.process(self.send_message('Real', self.rate_client))
         if self.client_dummies:
             self.env.process(self.send_message('ClientDummy', self.rate_client_dummies))
@@ -61,14 +64,14 @@ class Client:
                         route_ids.append(node.id)
 
 
-            elif self.simulation.routing == 'source' and self.simulation.topology == 'freeroute'\
-                    or (self.simulation.routing == 'hopbyhop' and self.simulation.topology == 'freeroute' and layer == 1):
+            elif self.simulation.routing == 'source' and self.simulation.topology == 'free route'\
+                    or (self.simulation.routing == 'hopbyhop' and self.simulation.topology == 'free route' and layer == 1):
 
                 node = choice(self.all_mixes)
                 while node in route:
                     node = choice(self.all_mixes)
-                    route.append(node)
-                    route_ids.append(node.id)
+                route.append(node)
+                route_ids.append(node.id)
                 print(f"==>> route: {route}")
 
             elif self.simulation.routing == 'hopbyhop' and layer != 1:
