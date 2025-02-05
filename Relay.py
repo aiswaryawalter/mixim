@@ -31,6 +31,7 @@ class Attacker:
                 msg.target_bool = True
                 self.targetMessage = msg
                 self.n_target_chosen_attacker += 1
+                print(f"n_target_chosen_attacker={self.n_target_chosen_attacker}")
                 if self.n_target_chosen_attacker == 1:
                     self.time_stable = self.env.now
                     if self.simulation.printing:

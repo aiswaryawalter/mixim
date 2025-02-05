@@ -29,6 +29,7 @@ class PoissonMix(Mix):
             lambdaClient = self.simulation.rate_client
             average = (clients * lambdaClient * self.simulation.mu) * self.pr_mix
             var1 = len(self.pool) >= average
+            print(f"var1 -> {var1}  self.pool -> {len(self.pool)}  average -> {average}")
             if self.simulation.topology == 'stratified':
                 if var1 and self.layer == 1:
                     self.env.process(self.simulation.set_stable_mix(self.id - 1))
@@ -41,6 +42,10 @@ class PoissonMix(Mix):
                 if all(self.simulation.stableChains):
                     for i in range(len(self.simulation.stableChains)):
                         self.simulation.setStableChain(i)
+            elif self.simulation.topology == 'free route':
+                if var1:
+                    print(f"[{self.env.now}] Mix {self.id} stable => set_stable_mix({self.id - 1})")
+                    self.env.process(self.simulation.set_stable_mix(self.id - 1))
         for i in range(0, self.n_targets):
             self.Pmix[i] += msg.pr_target[i]
         if msg.target_bool and self.simulation.printing:

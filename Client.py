@@ -27,6 +27,9 @@ class Client:
                 self.all_mixes += self.network_dict[layer]
         elif self.simulation.topology == 'XRD':
             self.set_chains = self.network_dict
+        if self.simulation.topology == 'free route':
+            for layer in range(1, len(self.network_dict) + 1):
+                self.all_mixes += self.network_dict[layer]
         self.env.process(self.send_message('Real', self.rate_client))
         if self.client_dummies:
             self.env.process(self.send_message('ClientDummy', self.rate_client_dummies))
@@ -37,52 +40,60 @@ class Client:
         route = [self]
         route_ids = [self.id]
         delays = [delay_client]
-        pr_target = []
-
-        for i in range(0, self.n_targets):
-            pr_target.append(float(0.0))
-        for layer in range(1, self.simulation.n_layers+1):
-            delay_per_mix = exponential(self.mu)
-            delays.append(delay_per_mix)
-            if self.simulation.routing == 'source' and self.simulation.topology == 'stratified'\
-                    or (self.simulation.routing == 'hopbyhop' and self.simulation.topology == 'stratified' and layer == 1):
-                if self.simulation.n_layers ==1 and self.simulation.n_mixes_per_layer == 1:
-                    node = self.network_dict[1][0]
-                    route.append(node)
-                    route_ids.append(node.id)
-                else:
-                    if layer == 1:
-                        node = np.random.choice(self.network_dict[layer], p=self.probability_dist_mixes[layer - 1])
+        pr_target = [0.0 for _ in range(self.n_targets)]
+        if (self.simulation.topology == 'free route' and 
+            self.simulation.routing == 'source'):
+            path_length = 5
+            # path_length = np.random.randint(2, 6)  
+            for _ in range(path_length):
+                delay_per_mix = exponential(self.mu)
+                delays.append(delay_per_mix)
+                node = choice(self.all_mixes)  
+                while node in route:
+                    node = choice(self.all_mixes)
+                route.append(node)
+                route_ids.append(node.id)
+            print(f"[Free Route Debug] Route: {route}")
+        else:
+            for layer in range(1, self.simulation.n_layers+1):
+                delay_per_mix = exponential(self.mu)
+                delays.append(delay_per_mix)
+                if self.simulation.routing == 'source' and self.simulation.topology == 'stratified'\
+                        or (self.simulation.routing == 'hopbyhop' and self.simulation.topology == 'stratified' and layer == 1):
+                    if self.simulation.n_layers ==1 and self.simulation.n_mixes_per_layer == 1:
+                        node = self.network_dict[1][0]
                         route.append(node)
                         route_ids.append(node.id)
                     else:
-                        node = np.random.choice(node.neighbors)
-                        route.append(node)
-                        route_ids.append(node.id)
-
-
-            elif self.simulation.routing == 'source' and self.simulation.topology == 'freeroute'\
-                    or (self.simulation.routing == 'hopbyhop' and self.simulation.topology == 'freeroute' and layer == 1):
-
-                node = choice(self.all_mixes)
-                while node in route:
+                        if layer == 1:
+                            node = np.random.choice(self.network_dict[layer], p=self.probability_dist_mixes[layer - 1])
+                            route.append(node)
+                            route_ids.append(node.id)
+                        else:
+                            node = np.random.choice(node.neighbors)
+                            route.append(node)
+                            route_ids.append(node.id)
+                # elif self.simulation.routing == 'source' and self.simulation.topology == 'free route'\
+                elif (self.simulation.routing == 'hopbyhop' and self.simulation.topology == 'free route' and layer == 1):
                     node = choice(self.all_mixes)
+                    while node in route:
+                        node = choice(self.all_mixes)
                     route.append(node)
                     route_ids.append(node.id)
-                print(f"==>> route: {route}")
-
-            elif self.simulation.routing == 'hopbyhop' and layer != 1:
-                route.append(None)
-                route_ids.append(None)
-            elif self.simulation.routing == 'source' and self.simulation.topology == 'XRD':
-                chain = random.choice(self.set_chains)
-                route = [self]
-                route_ids = [self.id]
-                for node in chain:
-                    route.append(node)
-                    route_ids.append((node.id))
+                    print(f"==>> route: {route}")
+                elif self.simulation.routing == 'hopbyhop' and layer != 1:
+                    route.append(None)
+                    route_ids.append(None)
+                elif self.simulation.routing == 'source' and self.simulation.topology == 'XRD':
+                    chain = random.choice(self.set_chains)
+                    route = [self]
+                    route_ids = [self.id]
+                    for node in chain:
+                        route.append(node)
+                        route_ids.append((node.id))
         delays += [0]
         receiver = sample(list(self.other_clients), k=1)[0]
+        print(f"[Route Delays]: {delays}")
         print(f"==>> receiver: {receiver} at time {self.env.now}")
         route += [receiver]
         route_ids += [receiver.id]
@@ -112,6 +123,7 @@ class Client:
         while True:
             message, sending_time = self.create_message(message_type, rate_client)
             yield self.env.timeout(sending_time)
+            print(f"==>> Sending Time: {sending_time}")
             message.time_left = self.env.now
             self.log.sent_messages_f(message)
             self.env.process(self.simulation.attacker.relay(message, message.route[1]))
