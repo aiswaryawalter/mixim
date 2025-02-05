@@ -43,7 +43,8 @@ class Client:
         pr_target = [0.0 for _ in range(self.n_targets)]
         if (self.simulation.topology == 'free route' and 
             self.simulation.routing == 'source'):
-            path_length = np.random.randint(2, 6)  
+            path_length = 5
+            # path_length = np.random.randint(2, 6)  
             for _ in range(path_length):
                 delay_per_mix = exponential(self.mu)
                 delays.append(delay_per_mix)
@@ -92,6 +93,7 @@ class Client:
                         route_ids.append((node.id))
         delays += [0]
         receiver = sample(list(self.other_clients), k=1)[0]
+        print(f"[Route Delays]: {delays}")
         print(f"==>> receiver: {receiver} at time {self.env.now}")
         route += [receiver]
         route_ids += [receiver.id]
@@ -121,6 +123,7 @@ class Client:
         while True:
             message, sending_time = self.create_message(message_type, rate_client)
             yield self.env.timeout(sending_time)
+            print(f"==>> Sending Time: {sending_time}")
             message.time_left = self.env.now
             self.log.sent_messages_f(message)
             self.env.process(self.simulation.attacker.relay(message, message.route[1]))
