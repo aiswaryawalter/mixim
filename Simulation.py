@@ -18,7 +18,7 @@ class Simulation(object):
 
     def __init__(self, mix_type, simDuration, rate_client, mu, logging, topology, fully_connected, n_clients,
                  flush_percent, printing, flush_timeout, threshold, routing, n_layers,
-                 n_mixes_per_layer, corrupt, unifrom_corruption, probability_dist_mixes, nbr_cascacdes, client_dummies,
+                 n_mixes_per_layer, corrupt, unifrom_corruption, probability_dist_mixes, nbr_cascacdes, m_barabasi_mixes, client_dummies,
                  rate_client_dummies, link_based_dummies, multiple_hops_dummies, rate_mix_dummies, Network_template):
 
         self.Log = Log()
@@ -43,6 +43,7 @@ class Simulation(object):
         self.mu = mu  # average delay at poisson mixes
         self.n_layers = n_layers
         self.n_mixes_per_layer = n_mixes_per_layer
+        self.m_barabasi_mixes = m_barabasi_mixes
         self.corrupt = corrupt
         self.probability_dist_mixes = probability_dist_mixes
         self.unifrom_corruption = unifrom_corruption
@@ -66,7 +67,7 @@ class Simulation(object):
                                self.unifrom_corruption, self, self.threshold,
                                self.flush_percent, self.topology, fully_connected, self.flush_timeout,
                                self.probability_dist_mixes,
-                               self.n_cascades, self.link_based_dummies, self.multiple_hop_dummies,
+                               self.n_cascades, self.m_barabasi_mixes, self.link_based_dummies, self.multiple_hop_dummies,
                                self.rate_mix_dummies,
                                Network_template, self.n_targets)
 
@@ -114,6 +115,7 @@ class Simulation(object):
                 self.clientsSet.add(client)
             for client in self.clientsSet:
                 client.other_clients = self.clientsSet - {client}
+
         elif self.topology == 'XRD':
             groups_lists = XRD_New(self.network.list_cascades)
             n_group_client = self.n_clients // len(groups_lists)
@@ -133,9 +135,9 @@ class Simulation(object):
                 client = Client.Client(self, n_client, groups_lists[3], self.rate_client, self.mu,
                                        probabilityDistribution, n_targets, client_dummies, Log)
                 self.clientsSet.add(client)
-
             for client in self.clientsSet:
                 client.otherClients = self.clientsSet - {client}
+
         elif self.topology == 'free route':
             for client_no in range(self.n_clients):
                 client = Client.Client(
@@ -151,13 +153,30 @@ class Simulation(object):
                     Log
                 )
                 self.clientsSet.add(client)
+            for client in self.clientsSet:
+                client.other_clients = self.clientsSet - {client}
 
+        elif self.topology == 'ba topology':
+            for client_no in range(self.n_clients):
+                client = Client.Client(
+                    self,
+                    client_no,
+                    self.network.network_dict, 
+                    self.rate_client,
+                    self.mu,
+                    probabilityDistribution,
+                    n_targets,
+                    client_dummies,
+                    rate_client_dummies,
+                    Log
+                )
+                self.clientsSet.add(client)
             for client in self.clientsSet:
                 client.other_clients = self.clientsSet - {client}
 
 
+
     def run(self, time=None):
-        # Print statements and results from here
         if self.printing:
             print('\n')
             print('----------Simulation Data----------')

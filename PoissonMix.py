@@ -46,6 +46,10 @@ class PoissonMix(Mix):
                 if var1:
                     print(f"[{self.env.now}] Mix {self.id} stable => set_stable_mix({self.id - 1})")
                     self.env.process(self.simulation.set_stable_mix(self.id - 1))
+            if self.simulation.topology == 'ba topology':
+                if len(self.pool) >= 2:  
+                    print(f"[BA Debug] Mix {self.id} is stable => Calling set_stable_mix({self.id - 1})")
+                    self.env.process(self.simulation.set_stable_mix(self.id - 1))
         for i in range(0, self.n_targets):
             self.Pmix[i] += msg.pr_target[i]
         if msg.target_bool and self.simulation.printing:

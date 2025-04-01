@@ -25,6 +25,7 @@ def main(rate):
     total_n_mixes= n_layer * n_mix_per_layer
     # For cascade topology
     n_cascade = int(config['TOPOLOGY']['n_cascades'])
+    m_barabasi_mixes = int(config['TOPOLOGY']['m_fully_connected_mixes'])
 
     # mu = (int(config['TOPOLOGY']['E2E']) - (n_layer + 1)*0.05)/n_layer 
     # \\mu = 0.13 for stratified and mu = 0.9 for free route
@@ -52,7 +53,7 @@ def main(rate):
     weights = Weights(n_layer, n_mix_per_layer)
     simulation = Simulation(mix_type=mix_type, simDuration=50, rate_client=1/lambda_c, mu=mu, logging=True,
                             topology=topology,fully_connected= fully_connected, n_clients=n_clients, flush_percent=flush_percent, printing=True, flush_timeout=timeout, threshold=threshold, routing=routing, n_layers=n_layer,
-                            n_mixes_per_layer=n_mix_per_layer,corrupt= corrupt_mixes,unifrom_corruption= balanced_corruption,probability_dist_mixes=weights,nbr_cascacdes = n_cascade, client_dummies=client_dummies,rate_client_dummies = rate_client_dummies, link_based_dummies = link_dummies, multiple_hops_dummies = multiple_hops_dummies,rate_mix_dummies = rate_mix_dummies,
+                            n_mixes_per_layer=n_mix_per_layer,corrupt= corrupt_mixes,unifrom_corruption= balanced_corruption,probability_dist_mixes=weights,nbr_cascacdes = n_cascade, m_barabasi_mixes = m_barabasi_mixes, client_dummies=client_dummies,rate_client_dummies = rate_client_dummies, link_based_dummies = link_dummies, multiple_hops_dummies = multiple_hops_dummies,rate_mix_dummies = rate_mix_dummies,
                             Network_template=None)
 
     now = time.time()

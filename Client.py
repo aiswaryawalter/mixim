@@ -25,6 +25,9 @@ class Client:
         if self.simulation.topology == 'stratified':
             for layer in range(1, len(self.network_dict) + 1):
                 self.all_mixes += self.network_dict[layer]
+        elif self.simulation.topology == 'ba topology':
+            for layer in range(1, len(self.network_dict) + 1):
+                self.all_mixes += self.network_dict[layer]
         elif self.simulation.topology == 'XRD':
             self.set_chains = self.network_dict
         if self.simulation.topology == 'free route':
@@ -54,6 +57,40 @@ class Client:
                 route.append(node)
                 route_ids.append(node.id)
             print(f"[Free Route Debug] Route: {route}")
+            
+        elif (self.simulation.topology == 'ba topology' and 
+            self.simulation.routing == 'source'):
+        
+            path_length = 5
+            current_node = random.choice(self.all_mixes)
+
+            # Append the first node to the route
+            route.append(current_node)
+            route_ids.append(current_node.id)
+
+            # For each hop in the path, choose one random neighbor
+            for _ in range(path_length - 1):
+                neighbors = list(current_node.neighbors)
+                if not neighbors:
+                    break
+
+                node_next = random.choice(neighbors)
+                
+                # avoid repeating nodes
+                while node_next in route:
+                    node_next = random.choice(neighbors)
+                
+                # Append a delay for this hop
+                delay_per_mix = exponential(self.mu)
+                delays.append(delay_per_mix)
+                
+                # Append the next node to the route
+                route.append(node_next)
+                route_ids.append(node_next.id)
+
+                current_node = node_next
+
+            print(f"[BA Debug] route so far: {route}")    
         else:
             for layer in range(1, self.simulation.n_layers+1):
                 delay_per_mix = exponential(self.mu)

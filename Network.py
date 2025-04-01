@@ -11,7 +11,7 @@ class Network:
 
     def __init__(self, mix_type, num_layers, nbr_mixes_layers, corrupt, unifrom_corruption, simulation,
                  threshold,
-                 flush_percent, topology,fully_connected, flushtime, probability_dist_mixes, n_cascades,  link_based_dummies, multiple_hop_dummies, rate_mix_dummies, Network_template, numberTargets):
+                 flush_percent, topology,fully_connected, flushtime, probability_dist_mixes, n_cascades, m_barabasi_mixes,  link_based_dummies, multiple_hop_dummies, rate_mix_dummies, Network_template, numberTargets):
         self.simulation = simulation
         self.num_layers = num_layers
         self.mix_type = mix_type
@@ -25,6 +25,7 @@ class Network:
         self.fully_connected = fully_connected
         self.flushtime = flushtime
         self.n_cascades = n_cascades
+        self.m_barabasi_mixes = m_barabasi_mixes
         self.link_based_dummies = link_based_dummies
         self.multiple_hop_dummies =multiple_hop_dummies
         self.rate_mix_dummies = rate_mix_dummies
@@ -76,6 +77,7 @@ class Network:
                             #mix.neighbors = []
                             #mix.neighbors.append(self.LayerDict[mix.layer + 1][0])
                             #mix.neighbors.append(self.LayerDict[mix.layer + 1][1])
+        
         elif self.topology == 'XRD':
             mixnb = 1
             for n in range(1, 1 + self.n_cascades):
@@ -91,6 +93,7 @@ class Network:
                 self.list_cascades[n] = cascade
             for n, list in self.list_cascades.items():
                 print('Chain number', n, ':', list)
+        
         elif self.topology == 'free route':
             # 1) Create a list (or set) of mixes
             self.network_dict[1] = []  # if we treat everything as "layer 1"
@@ -112,7 +115,6 @@ class Network:
                             Nbr_Corruption += 1
                     else:
                         varCorrupt = False
-
                 # Create the mix (poisson, timed, or pool) exactly like stratified:
                 mix = self.get_mixnode(
                     self.mix_type,
@@ -138,6 +140,33 @@ class Network:
                     possible_neighbors = [m for m in list_of_mixes if m != mix]
                     # pick e.g. 2 random neighbors:
                     mix.neighbors = random.sample(possible_neighbors, k=2)
+       
+        elif self.topology == 'ba topology':
+            N = self.mixesPerLayer  
+            m = self.m_barabasi_mixes 
+            # build adjacency list
+            adjacency_list = self.ba_adjacency(N, m)
+
+            # create mixes
+            self.network_dict[1] = []
+            for node_id in range(N):
+                varCorrupt = False
+                mix = self.get_mixnode(
+                    self.mix_type,
+                    id=node_id + 1,        
+                    position=1,          
+                    numberTargets=self.numberTargets,
+                    corrupt=varCorrupt,
+                    weight_mix=1.0 / N     
+                )
+                self.network_dict[1].append(mix)
+                self.all_mixes.add(mix)
+            # assign neighbors based on adjacency_list
+            for node_id, mix in enumerate(self.network_dict[1]):
+                neighbor_ids = adjacency_list[node_id]
+                # Convert neighbor indices to actual mix objects
+                mix.neighbors = [self.network_dict[1][nbr_id] for nbr_id in neighbor_ids]
+
 
 
     def get_mixnode(self, mix_type, id, position, numberTargets, corrupt, weight_mix):
@@ -153,3 +182,43 @@ class Network:
 
     def odd(self, number):
         return number % 2 == 1
+    
+    def ba_adjacency(self, N, m):
+        if m < 1 or m >= N:
+            raise ValueError("BA-topology parameter m must be in [1, N-1].")
+
+        # adjacency_list[i] = list of neighbors of node i
+        adjacency_list = [[] for _ in range(N)]
+
+        # fully connected (complete) graph of m nodes
+        for i in range(m):
+            for j in range(i+1, m):
+                adjacency_list[i].append(j)
+                adjacency_list[j].append(i)
+
+        # degree array for each node
+        degree = [0]*N
+        for i in range(m):
+            degree[i] = m-1 
+
+        # add remaining nodes one by one
+        for new_node in range(m, N):
+            degree_sum = sum(degree[:new_node])
+
+            # pick m distinct existing nodes using preferential attachment
+            connected = set()
+            while len(connected) < m:
+                candidate = random.randrange(new_node)
+                p_attach = degree[candidate] / degree_sum
+                if random.random() < p_attach:
+                    connected.add(candidate)
+
+            # connect new_node with each in connected
+            for cand in connected:
+                adjacency_list[new_node].append(cand)
+                adjacency_list[cand].append(new_node)
+                degree[new_node] += 1
+                degree[cand] += 1
+
+        return adjacency_list
+
