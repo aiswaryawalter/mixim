@@ -16,7 +16,7 @@ if not os.path.exists(logDir):
 
 class Simulation(object):
 
-    def __init__(self, mix_type, simDuration, rate_client, mu, logging, topology, fully_connected, n_clients,
+    def __init__(self, mix_type, simDuration, rate_client, mu, logging, topology, fully_connected, n_clients, n_hops, 
                  flush_percent, printing, flush_timeout, threshold, routing, n_layers,
                  n_mixes_per_layer, corrupt, unifrom_corruption, probability_dist_mixes, nbr_cascacdes, m_barabasi_mixes, client_dummies,
                  rate_client_dummies, link_based_dummies, multiple_hops_dummies, rate_mix_dummies, Network_template):
@@ -37,6 +37,7 @@ class Simulation(object):
         self.rate_mix_dummies = rate_mix_dummies
 
         self.n_clients = n_clients
+        self.n_hops = n_hops
         self.clientsSet = set()
         self.rate_client = rate_client  # average delay between messages being sent from client
         self.threshold = threshold
@@ -63,8 +64,8 @@ class Simulation(object):
             print(f"n_targets={self.n_targets}")
         else:
             self.n_targets = int((self.SimDuration - self.flush_timeout - 1) / 4)
-        self.network = Network(self.mix_type, self.n_layers, self.n_mixes_per_layer, self.corrupt,
-                               self.unifrom_corruption, self, self.threshold,
+        self.network = Network(self.mix_type, self.n_layers, self.n_mixes_per_layer, 
+                               self.corrupt,self.unifrom_corruption, self, self.threshold,
                                self.flush_percent, self.topology, fully_connected, self.flush_timeout,
                                self.probability_dist_mixes,
                                self.n_cascades, self.m_barabasi_mixes, self.link_based_dummies, self.multiple_hop_dummies,
@@ -111,7 +112,7 @@ class Simulation(object):
         if self.topology == 'stratified':
             for client_no in range(self.n_clients):
                 client = Client.Client(self, client_no, self.network.network_dict, self.rate_client, self.mu,
-                                       probabilityDistribution, n_targets, client_dummies, rate_client_dummies, Log)
+                                       probabilityDistribution, n_targets, self.n_hops, client_dummies, rate_client_dummies, Log)
                 self.clientsSet.add(client)
             for client in self.clientsSet:
                 client.other_clients = self.clientsSet - {client}
@@ -121,19 +122,19 @@ class Simulation(object):
             n_group_client = self.n_clients // len(groups_lists)
             for client_id in range(n_group_client):
                 client = Client.Client(self, client_id, groups_lists[0], self.rate_client, self.mu,
-                                       probabilityDistribution, n_targets, client_dummies, Log)
+                                       probabilityDistribution, n_targets, self.n_hops, client_dummies, Log)
                 self.clientsSet.add(client)
             for n_client in range(n_group_client, n_group_client * 2):
                 client = Client.Client(self, n_client, groups_lists[1], self.rate_client, self.mu,
-                                       probabilityDistribution, n_targets, client_dummies, Log)
+                                       probabilityDistribution, n_targets, self.n_hops, client_dummies, Log)
                 self.clientsSet.add(client)
             for n_client in range(n_group_client * 2, n_group_client * 3):
                 client = Client.Client(self, n_client, groups_lists[2], self.rate_client, self.mu,
-                                       probabilityDistribution, n_targets, client_dummies, Log)
+                                       probabilityDistribution, n_targets, self.n_hops, client_dummies, Log)
                 self.clientsSet.add(client)
             for n_client in range(n_group_client * 3, self.n_clients):
                 client = Client.Client(self, n_client, groups_lists[3], self.rate_client, self.mu,
-                                       probabilityDistribution, n_targets, client_dummies, Log)
+                                       probabilityDistribution, n_targets, self.n_hops, client_dummies, Log)
                 self.clientsSet.add(client)
             for client in self.clientsSet:
                 client.otherClients = self.clientsSet - {client}
@@ -148,6 +149,7 @@ class Simulation(object):
                     self.mu,
                     probabilityDistribution,
                     n_targets,
+                    self.n_hops,
                     client_dummies,
                     rate_client_dummies,
                     Log
@@ -166,6 +168,7 @@ class Simulation(object):
                     self.mu,
                     probabilityDistribution,
                     n_targets,
+                    self.n_hops,
                     client_dummies,
                     rate_client_dummies,
                     Log
@@ -257,6 +260,14 @@ class Simulation(object):
         average_delay = sum_delays / len(self.Log.received_messages["MessageTimeReceived"])
         if self.printing:
             print('----------Simulation Stats----------')
+            print('\n')
+            print('----------Simulation Data----------')
+            print('Topology: {}'.format(self.topology))
+            print('Routing strategy: {}'.format(self.routing))
+            print('Mix type: {}'.format(self.mix_type))
+            print('Layers: {}, \n amount of mixes per layer: {}, \n Number of hops: {}'.format(self.n_layers, self.n_mixes_per_layer, self.n_hops))
+            print(
+                'Amount of clients: {}, \n average delay between 2 messages: {}'.format(self.n_clients, self.rate_client))
             # print('Average Latency: {}'.format(latency))
             print("Number of targets chosen", self.n_targets)
             print('Number of Real messages generated', len(self.Log.sent_messages["MessageID"]))

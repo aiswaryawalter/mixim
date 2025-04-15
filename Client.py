@@ -5,7 +5,7 @@ import numpy as np
 import random
 
 class Client:
-    def __init__(self, simulation, id, network_dict, rate_client, mu, probability_dist_mixes, n_targets, client_dummies, rate_client_dummies, Log):
+    def __init__(self, simulation, id, network_dict, rate_client, mu, probability_dist_mixes, n_targets, n_hops, client_dummies, rate_client_dummies, Log):
         self.id = id
         self.env = simulation.env
         self.simulation = simulation  # simulation object
@@ -19,6 +19,7 @@ class Client:
         self.rate_client = rate_client
         self.all_mixes = []
         self.n_targets = n_targets
+        self.n_hops = n_hops
         self.client_dummies = client_dummies
         self.rate_client_dummies = rate_client_dummies
         self.log = Log
@@ -46,9 +47,8 @@ class Client:
         pr_target = [0.0 for _ in range(self.n_targets)]
         if (self.simulation.topology == 'free route' and 
             self.simulation.routing == 'source'):
-            path_length = 5
-            # path_length = np.random.randint(2, 6)  
-            for _ in range(path_length):
+            # self.n_hops = np.random.randint(2, 6)  
+            for _ in range(self.n_hops):
                 delay_per_mix = exponential(self.mu)
                 delays.append(delay_per_mix)
                 node = choice(self.all_mixes)  
@@ -61,7 +61,6 @@ class Client:
         elif (self.simulation.topology == 'ba topology' and 
             self.simulation.routing == 'source'):
         
-            path_length = 5
             current_node = random.choice(self.all_mixes)
 
             # Append the first node to the route
@@ -69,7 +68,7 @@ class Client:
             route_ids.append(current_node.id)
 
             # For each hop in the path, choose one random neighbor
-            for _ in range(path_length - 1):
+            for _ in range(self.n_hops - 1):
                 neighbors = list(current_node.neighbors)
                 if not neighbors:
                     break

@@ -11,7 +11,8 @@ class Network:
 
     def __init__(self, mix_type, num_layers, nbr_mixes_layers, corrupt, unifrom_corruption, simulation,
                  threshold,
-                 flush_percent, topology,fully_connected, flushtime, probability_dist_mixes, n_cascades, m_barabasi_mixes,  link_based_dummies, multiple_hop_dummies, rate_mix_dummies, Network_template, numberTargets):
+                 flush_percent, topology,fully_connected, flushtime, probability_dist_mixes, n_cascades, 
+                 m_barabasi_mixes,  link_based_dummies, multiple_hop_dummies, rate_mix_dummies, Network_template, numberTargets):
         self.simulation = simulation
         self.num_layers = num_layers
         self.mix_type = mix_type
@@ -77,7 +78,7 @@ class Network:
                             #mix.neighbors = []
                             #mix.neighbors.append(self.LayerDict[mix.layer + 1][0])
                             #mix.neighbors.append(self.LayerDict[mix.layer + 1][1])
-        
+                            
         elif self.topology == 'XRD':
             mixnb = 1
             for n in range(1, 1 + self.n_cascades):
@@ -95,7 +96,6 @@ class Network:
                 print('Chain number', n, ':', list)
         
         elif self.topology == 'free route':
-            # 1) Create a list (or set) of mixes
             self.network_dict[1] = []  # if we treat everything as "layer 1"
             self.all_mixes = set()
             Nbr_Corruption = 0
