@@ -36,6 +36,18 @@ class PoissonMix(Mix):
                 #if all(self.simulation.stableMixL1):
                     #for i in range(len(self.simulation.stableMixL1)):
                         #self.simulation.setStableMix(i)
+            elif self.simulation.topology == 'cyclic_stratified':
+                if var1 and not self.simulation.stable_layer[self.layer - 1]:
+                    # mark this layer stable *once*
+                    self.simulation.stable_layer[self.layer - 1] = True
+                    if self.simulation.printing:
+                        print(f"[{self.env.now}] Layer {self.layer} stable "
+                            f"({sum(self.simulation.stable_layer)}/"
+                            f"{self.simulation.n_layers})")
+                    if all(self.simulation.stable_layer):
+                        self.simulation.startAttack = True
+                        if self.simulation.printing:
+                            print(f"[{self.env.now}] Ring stable → startAttack = True")
             elif self.simulation.topology == 'XRD':
                 if var1:
                     self.env.process(self.simulation.setStableChain(self.n_chain))

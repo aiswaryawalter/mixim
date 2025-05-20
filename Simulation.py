@@ -76,7 +76,10 @@ class Simulation(object):
                          self.Log)
         # self.stableMix = [False for i in range(self.n_mixes_per_layer*self.n_layers)]  # only start attack after mixes are stable
         self.stableChains = [False for i in range(1, 1 + 6)]  # only start attack after chains are stable
-        self.stableMixL1 = [False for i in range(self.n_mixes_per_layer)]  # only start attack after mixes are stable
+        if self.topology == 'stratified':
+            self.stableMixL1 = [False for i in range(self.n_mixes_per_layer)]  # only start attack after mixes are stable
+        if self.topology == 'cyclic_stratified':
+            self.stable_layer = [False] * self.n_layers 
         self.attacker = Attacker(self, self.n_targets)  # attacker/relay object
         self.endEvent = self.env.event()  # event that triggers the end of the simulation
         self.TargetMessageEnd = False  # if target message has reached the end client
@@ -114,6 +117,26 @@ class Simulation(object):
                 client = Client.Client(self, client_no, self.network.network_dict, self.rate_client, self.mu,
                                        probabilityDistribution, n_targets, self.n_hops, client_dummies, rate_client_dummies, Log)
                 self.clientsSet.add(client)
+            for client in self.clientsSet:
+                client.other_clients = self.clientsSet - {client}
+        
+        elif self.topology == 'cyclic_stratified':
+            for client_no in range(self.n_clients):
+                client = Client.Client(
+                    self,
+                    client_no,
+                    self.network.network_dict,   # the ring
+                    self.rate_client,
+                    self.mu,
+                    probabilityDistribution,
+                    n_targets,
+                    self.n_hops,
+                    client_dummies,
+                    rate_client_dummies,
+                    Log
+                )
+                self.clientsSet.add(client)
+
             for client in self.clientsSet:
                 client.other_clients = self.clientsSet - {client}
 

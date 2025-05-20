@@ -89,7 +89,34 @@ class Client:
 
                 current_node = node_next
 
-            print(f"[BA Debug] route so far: {route}")    
+            print(f"[BA Debug] route so far: {route}")  
+
+        elif self.simulation.topology == 'cyclic_stratified':
+            start_layer = random.randint(1, self.simulation.n_layers)
+            print(f"[Debug] Start Layer: {start_layer}")  
+            current_layer = start_layer
+            prev_node     = None 
+
+            for layer in range(self.simulation.n_layers):
+                # choose the mix for the *current* layer
+                if prev_node is None:                    # first hop
+                    node = np.random.choice(
+                        self.network_dict[current_layer],
+                        p=self.probability_dist_mixes[current_layer - 1]  # correct index
+                    )
+                else:                                   # subsequent hops
+                    node = np.random.choice(prev_node.neighbors)
+
+                # record hop‑delay and route entry
+                delay_per_mix = exponential(self.mu)
+                delays.append(delay_per_mix)
+                route.append(node)
+                route_ids.append(node.id)
+
+                # prepare for next iteration
+                prev_node     = node
+                current_layer = (current_layer % self.simulation.n_layers) + 1
+
         else:
             for layer in range(1, self.simulation.n_layers+1):
                 delay_per_mix = exponential(self.mu)
@@ -133,6 +160,7 @@ class Client:
         print(f"==>> receiver: {receiver} at time {self.env.now}")
         route += [receiver]
         route_ids += [receiver.id]
+        print(f"[Debug] ==>> route: {route}") 
 
         message = Message(self.message_id, message_type, self, route, delays, pr_target,False)
         if self.message_id == 1 and self.id ==1:

@@ -78,7 +78,27 @@ class Network:
                             #mix.neighbors = []
                             #mix.neighbors.append(self.LayerDict[mix.layer + 1][0])
                             #mix.neighbors.append(self.LayerDict[mix.layer + 1][1])
-                            
+        elif self.topology == 'cyclic_stratified':
+            for layer in range(1, self.simulation.n_layers + 1):
+                self.network_dict[layer] = []
+                for _ in range(self.simulation.n_mixes_per_layer):
+                    varCorrupt = False
+                    mix = self.get_mixnode(
+                        self.mix_type,
+                        mixnb,
+                        layer,
+                        self.numberTargets,
+                        varCorrupt,
+                        self.probability_dist_mixes[layer - 1][_]
+                    )
+                    self.all_mixes.add(mix)
+                    self.network_dict[layer].append(mix)
+                    mixnb += 1
+            for layer in range(1, self.simulation.n_layers + 1):
+                next_layer = (layer % self.simulation.n_layers) + 1
+                for mix in self.network_dict[layer]:
+                    mix.neighbors = self.network_dict[next_layer]
+
         elif self.topology == 'XRD':
             mixnb = 1
             for n in range(1, 1 + self.n_cascades):
@@ -100,8 +120,7 @@ class Network:
             self.all_mixes = set()
             Nbr_Corruption = 0
             
-            for i in range(self.mixesPerLayer):  # or however many mixes you want
-                # Decide if corrupt or honest
+            for i in range(self.mixesPerLayer):  
                 if self.unifrom_corruption:
                     # (Same logic as 'stratified' to spread corruption)
                     varCorrupt = (Nbr_Corruption < self.corrupt)
