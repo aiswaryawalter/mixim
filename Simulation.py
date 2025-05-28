@@ -89,6 +89,9 @@ class Simulation(object):
 
     def set_stable_mix(self, index):
         print(f"[{self.env.now}] Entered set_stable_mix for index={index}")
+        if index >= len(self.stableMixL1):
+            print(f"[Warning] Index {index} out of range for stableMixL1")
+            return
         if self.mix_type == 'pool':
             yield self.env.timeout(10)
             self.startAttack = True
@@ -96,10 +99,11 @@ class Simulation(object):
             yield self.env.timeout(self.flush_timeout + 5)
             self.startAttack = True
         self.stableMixL1[index] = True
+        print(f"[{self.env.now}] self.stableMixL1[index]={self.stableMixL1[index]}")
         if all(self.stableMixL1):
             yield self.env.timeout(2)
             self.startAttack = True
-        print(f"[{self.env.now}] set_stable_mix done => startAttack={self.startAttack}")
+            print(f"[{self.env.now}] set_stable_mix done => startAttack={self.startAttack}")
 
 
     def set_stable_chain(self, position):
@@ -298,5 +302,10 @@ class Simulation(object):
             print('Number of Dummy messages dropped', len(self.Log.dummy_messages["DummyID"]))
             print("Average delay per message", average_delay)
             print('-------------------------------------')
+        
+        entropy = [float(e) for e in entropy]
+        entropy_mean = float(np.mean(entropy))
+        entropy_median = float(np.median(entropy))
+        entropy_q25 = float(np.quantile(entropy, .25))
 
         return entropy, entropy_mean, entropy_median, entropy_q25
