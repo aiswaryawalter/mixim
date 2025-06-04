@@ -1,6 +1,7 @@
 import simpy
 import Client
 from Network import Network
+from collections import defaultdict
 import pandas as pd
 import numpy as np
 from Relay import Attacker
@@ -56,6 +57,22 @@ class Simulation(object):
         self.flush_timeout = flush_timeout
         self.n_targets = 0
         self.MsgsDropped = []
+        
+        #batch
+        self.batch_to_msgs = defaultdict(list)
+        self.msg_to_batch_prob = {}
+        self.msg_ass_history = defaultdict(list)
+        self.total_batches = 0 
+        self.global_batch_counter = 0
+        self.client_batch_counters = defaultdict(int)
+        # self.all_batch_ids = set()
+        self.all_batch_ids = []  # preserves order
+        self.batch_id_to_index = {}  # for fast lookup
+        self.delivered_msg_ids = set()
+        self.completed_batches = set()
+        self.all_msgs = []
+        self.total_received_msgs = 0
+        self.total_anonymity_size = 0
 
         self.dummyID = 0
         time_stable = ((1 / self.rate_client) / self.n_layers) * self.mu + 2
@@ -309,3 +326,32 @@ class Simulation(object):
         entropy_q25 = float(np.quantile(entropy, .25))
 
         return entropy, entropy_mean, entropy_median, entropy_q25
+    
+    def retroactive_update_pr_batch(self, delivered_msg):
+        batch_id = delivered_msg.batch_id
+        batch_index = self.all_batch_ids.index(batch_id)
+        # Mark this message as delivered
+        self.delivered_msg_ids.add(delivered_msg.id)
+        # Check if all messages in this batch are delivered
+        all_msgs = self.batch_to_msgs[batch_id]
+        all_delivered = all(m.id in self.delivered_msg_ids for m in all_msgs)
+        if not all_delivered or batch_id in self.completed_batches:
+            return  # Not yet fully delivered or already processed
+        # Mark this batch as completed
+        self.completed_batches.add(batch_id)
+        # Update pr_batch of all undelivered messages
+        for m in self.all_msgs:
+            if m.id not in self.delivered_msg_ids:
+                # Set batch prob to 0
+                m.pr_batch[batch_index] = 0.0
+
+                # Renormalize
+                total = sum(m.pr_batch)
+                if total > 0:
+                    m.pr_batch = [p / total for p in m.pr_batch]
+
+                if self.printing:
+                    print(f"[Retroactive Update] Updated pr_batch of msg {m.id} after batch {batch_id} completed.")
+
+    def compute_anonymity_set(pr_batch, threshold=0.01):
+        return [i for i, p in enumerate(pr_batch) if p > threshold]
