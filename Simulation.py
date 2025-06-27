@@ -17,8 +17,8 @@ if not os.path.exists(logDir):
 class Simulation(object):
 
     def __init__(self, mix_type, simDuration, rate_client, mu, logging, topology, fully_connected, n_clients, n_hops, 
-                 flush_percent, printing, flush_timeout, threshold, routing, n_layers,
-                 n_mixes_per_layer, corrupt, unifrom_corruption, probability_dist_mixes, nbr_cascacdes, m_barabasi_mixes, client_dummies,
+                 flush_percent, printing, flush_timeout, threshold, routing, latency_bound, num_path_samples,
+                 n_layers, n_mixes_per_layer, corrupt, unifrom_corruption, probability_dist_mixes, nbr_cascacdes, m_barabasi_mixes, client_dummies,
                  rate_client_dummies, link_based_dummies, multiple_hops_dummies, rate_mix_dummies, Network_template):
 
         self.Log = Log()
@@ -35,6 +35,9 @@ class Simulation(object):
         self.link_based_dummies = link_based_dummies
         self.multiple_hop_dummies = multiple_hops_dummies
         self.rate_mix_dummies = rate_mix_dummies
+
+        self.latency_bound = latency_bound
+        self.num_path_samples = num_path_samples
 
         self.n_clients = n_clients
         self.n_hops = n_hops

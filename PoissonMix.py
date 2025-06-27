@@ -23,6 +23,17 @@ class PoissonMix(Mix):
             self.env.process(self.send_dummies())
 
     def receive_message(self, msg):
+        if msg.next_hop_index >= 1:
+            previous_mix = msg.route[msg.next_hop_index-1]
+            if previous_mix and hasattr(previous_mix, 'id'):
+                measured_latency = self.env.now - msg.time_left
+                prev_id = previous_mix.id
+                if prev_id not in self.latency_to_neighbors:
+                    self.latency_to_neighbors[prev_id] = measured_latency
+                else:
+                    old = self.latency_to_neighbors[prev_id]
+                    self.latency_to_neighbors[prev_id] = 0.8 * old + 0.2 * measured_latency
+                print(f"[Larmix Latency Update upon Receiving] Mix {prev_id} → {self.id}: {self.latency_to_neighbors[prev_id]}")
         if not self.simulation.startAttack:  # if a mix reaches a poolsize of 5 percent higher than the average,
             # the GPA can monitor the network and choose a target message
             clients = self.simulation.n_clients
@@ -82,12 +93,24 @@ class PoissonMix(Mix):
                 elif self.layer != self.simulation.n_layers:
                     self.pool.append(msg)
                     self.env.process(self.send_msg(msg))
+
     def send_msg(self, msg):
+        send_time = self.env.now
         yield self.env.timeout(msg.delays[self.layer])
+        recv_time = self.env.now
+        observed_latency = recv_time - send_time
         self.update_probabilities(msg, len(self.pool))
-        next_hop_index = msg.route[msg.next_hop_index]
+        next_hop = msg.route[msg.next_hop_index]
+        msg.time_left = recv_time
         self.pool.remove(msg)
-        self.env.process(self.simulation.attacker.relay(msg, next_hop_index))
+        if isinstance(next_hop, Mix):  
+            if next_hop.id not in self.latency_to_neighbors:
+                self.latency_to_neighbors[next_hop.id] = observed_latency
+            else:
+                old = self.latency_to_neighbors[next_hop.id]
+                self.latency_to_neighbors[next_hop.id] = 0.8 * old + 0.2 * observed_latency
+            print(f"[Larmix Latency Update upon Sending] Mix {self.id} → {next_hop.id}: {self.latency_to_neighbors[next_hop.id]}")
+        self.env.process(self.simulation.attacker.relay(msg, next_hop))
 
     def update_probabilities(self, msg, pool_size):
         if not self.corrupt:

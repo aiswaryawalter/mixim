@@ -15,6 +15,9 @@ def main(rate):
     routing = topology_vars['routing']
     mix_type = config['MIXING']['mix_type']
 
+    # Routing
+    latency_bound = config.getfloat('TOPOLOGY', 'latency_bound', fallback=10.0)
+    num_path_samples = config.getint('TOPOLOGY', 'num_path_samples', fallback=5)
 
     #Clients
     n_clients = int(config['DEFAULT']['n_clients'])
@@ -54,8 +57,9 @@ def main(rate):
     weights = Weights(n_layer, n_mix_per_layer)
     simulation = Simulation(mix_type=mix_type, simDuration=50, rate_client=1/lambda_c, mu=mu, logging=True,
                             topology=topology,fully_connected= fully_connected, n_clients=n_clients, n_hops=n_hops,
-                            flush_percent=flush_percent, printing=True, flush_timeout=timeout, threshold=threshold, routing=routing, n_layers=n_layer,
-                            n_mixes_per_layer=n_mix_per_layer,corrupt= corrupt_mixes,unifrom_corruption= balanced_corruption,
+                            flush_percent=flush_percent, printing=True, flush_timeout=timeout, threshold=threshold, routing=routing, 
+                            latency_bound=latency_bound, num_path_samples=num_path_samples, 
+                            n_layers=n_layer, n_mixes_per_layer=n_mix_per_layer,corrupt= corrupt_mixes,unifrom_corruption= balanced_corruption,
                             probability_dist_mixes=weights,nbr_cascacdes = n_cascade, m_barabasi_mixes = m_barabasi_mixes, client_dummies=client_dummies,
                             rate_client_dummies = rate_client_dummies, link_based_dummies = link_dummies, multiple_hops_dummies = multiple_hops_dummies,
                             rate_mix_dummies = rate_mix_dummies, Network_template=None)
@@ -78,10 +82,10 @@ if __name__ == "__main__":
     table_epsilon = []
     table_delta_epsilon = []
     for item in result:
-        table_entropy.append(item[0])
-        table_mean_entropy.append(item[1])
-        table_median_entropy.append(item[2])
-        table_q25_entropy.append(item[3])
+        table_entropy.append([float(val) for val in item[0]])
+        table_mean_entropy.append(float(item[1]))
+        table_median_entropy.append(float(item[2]))
+        table_q25_entropy.append(float(item[3]))
     print("Entropy", table_entropy)
     print("Mean Entropy", table_mean_entropy)
     print("Median Entropy", table_median_entropy)

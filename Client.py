@@ -91,7 +91,8 @@ class Client:
 
             print(f"[BA Debug] route so far: {route}")  
 
-        elif self.simulation.topology == 'cyclic_stratified':
+        elif (self.simulation.topology == 'cyclic_stratified' and 
+            self.simulation.routing == 'source'):
             start_layer = random.randint(1, self.simulation.n_layers)
             print(f"[Debug] Start Layer: {start_layer}")  
             current_layer = start_layer
@@ -116,7 +117,13 @@ class Client:
                 # prepare for next iteration
                 prev_node     = node
                 current_layer = (current_layer % self.simulation.n_layers) + 1
-
+        elif (
+            self.simulation.routing == 'larmix'
+            and self.simulation.topology in ['stratified']):            
+            best_route = self.sample_latency_aware_path()
+            route = [self] + best_route
+            route_ids = [node.id for node in route]
+            delays = [exponential(self.mu) for _ in range(len(route) - 1)]    
         else:
             for layer in range(1, self.simulation.n_layers+1):
                 delay_per_mix = exponential(self.mu)
@@ -201,3 +208,94 @@ class Client:
 
     def __repr__(self):
         return self.__str__()
+    
+    def sample_latency_aware_path(self):
+        valid_paths = []
+        if self.simulation.topology in ['stratified', 'cyclic_stratified']:
+            num_hops = self.simulation.n_layers
+        else:
+            num_hops = self.simulation.n_hops
+
+        for _ in range(self.simulation.num_path_samples):
+            path = []
+            current_layer = 1
+            valid = True
+            total_latency = 0
+
+            for hop in range(num_hops):
+                if self.simulation.topology in ['stratified', 'cyclic_stratified']:
+                    candidates = self.network_dict[current_layer]
+                else:
+                    candidates = self.all_mixes
+                node = np.random.choice(candidates)
+                path.append(node)
+
+                # Estimate latency to next node if available
+                if len(path) > 1:
+                    prev = path[-2]
+                    if node.id in prev.latency_to_neighbors:
+                        total_latency += prev.latency_to_neighbors[node.id]
+                    else:
+                        total_latency += 2 # assume default if unknown
+
+                if total_latency > self.simulation.latency_bound:
+                    valid = False
+                    break
+
+                if self.simulation.topology in ['stratified', 'cyclic_stratified', 'XRD']:
+                    current_layer = (current_layer % self.simulation.n_layers) + 1
+
+            if valid:
+                valid_paths.append((path, total_latency))
+                
+        if not valid_paths:
+            print(f"[Warning] No valid paths under latency bound {self.simulation.latency_bound}. Using random path.")
+            # Fallback to random path
+            path = []
+            current_layer = 1
+            for _ in range(num_hops):
+                if self.simulation.topology in ['stratified', 'cyclic_stratified']:
+                    node = np.random.choice(self.network_dict[current_layer])
+                    current_layer = (current_layer % self.simulation.n_layers) + 1
+                else:
+                    node = np.random.choice(self.all_mixes)
+                path.append(node)
+            return path
+
+        
+        entropies = [self.route_entropy(p[0]) for p in valid_paths]
+        probs = self.softmax(entropies)
+        chosen_index = np.random.choice(len(valid_paths), p=probs)
+        best_route = valid_paths[chosen_index][0]
+        print(f"[Larmix Candidate Routes]==> {[p[0] for p in valid_paths]}")
+        print(f"[Larmix Candidate Entropies]==> {entropies}")
+        print(f"[Larmix Best Route]==> {best_route}")
+        return best_route
+    
+    def route_entropy(self, route):
+        entropy = 0.0
+        epsilon = 1e-9  # to avoid log(0)
+
+        if self.simulation.topology in ['stratified', 'cyclic_stratified']:
+            for i, mix in enumerate(route):
+                layer = (i % self.simulation.n_layers)
+                mix_list = self.network_dict[layer + 1]
+                p = self.probability_dist_mixes[layer][mix_list.index(mix)]
+                if p > 0:
+                    # entropy -= p * np.log2(p)
+                    entropy += -np.log2(p + epsilon) + np.random.uniform(0, 0.01)
+        else:
+            # Free route / BA topology — use flat list
+            mix_list = self.all_mixes
+            probs = self.probability_dist_mixes[0]  # assume only 1 layer's dist
+            for mix in route:
+                p = probs[mix_list.index(mix)]
+                if p > 0:
+                    # entropy -= p * np.log2(p)
+                    entropy += -np.log2(p + epsilon) + np.random.uniform(0, 0.01)
+
+        return entropy
+
+    def softmax(self, x):
+        e_x = np.exp(np.array(x) - np.max(x))
+        return e_x / e_x.sum()
