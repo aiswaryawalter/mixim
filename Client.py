@@ -220,7 +220,7 @@ class Client:
     def update_and_log_anonymity_stats(self, msg):
         print(f"[Receiver Debug] Final pr_batch for msg {msg.id}: {msg.pr_batch}")
         # Compute anonymity set
-        threshold = 0  # You can adjust this
+        threshold = 0.01  # You can adjust this
         anon_set = [i for i, p in enumerate(msg.pr_batch) if p > threshold]
         anon_size = len(anon_set)
         # Update global stats
