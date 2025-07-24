@@ -24,11 +24,6 @@ class Client:
         self.rate_client_dummies = rate_client_dummies
         self.log = Log
 
-        #batch
-        self.batch_size = 2  # or any group size you want
-        self.message_counter_within_batch = 0
-        self.current_batch_id = None
-
         if self.simulation.topology == 'stratified':
             for layer in range(1, len(self.network_dict) + 1):
                 self.all_mixes += self.network_dict[layer]
@@ -157,47 +152,8 @@ class Client:
         route_ids += [receiver.id]
         print(f"[Debug] ==>> route: {route}") 
 
-        #batch
-        if self.message_counter_within_batch == 0:
-            self.current_batch_id = f"client{self.id}_batch_{self.simulation.client_batch_counters[self.id]}"
-            batch_id = self.current_batch_id
-
-            # Register the batch if it's new
-            if batch_id not in self.simulation.batch_id_to_index:
-                index = len(self.simulation.all_batch_ids)
-                self.simulation.all_batch_ids.append(batch_id)
-                self.simulation.batch_id_to_index[batch_id] = index
-                self.simulation.total_batches = len(self.simulation.all_batch_ids)
-        else:
-            batch_id = self.current_batch_id
-        self.message_counter_within_batch += 1
-        # If batch is now full, increment the global counter
-        if self.message_counter_within_batch >= self.batch_size:
-            self.message_counter_within_batch = 0
-            self.simulation.client_batch_counters[self.id] += 1
-            self.simulation.global_batch_counter += 1
-        batch_index = self.simulation.batch_id_to_index[batch_id]
-        # print(f"[Batch Info] All Batch IDs: {self.simulation.all_batch_ids}")
-        print(f"[Batch Info] Current Batch ID: {batch_id} | Batch Index: {batch_index} ")
-        pr_batch = [0.0] * self.simulation.total_batches
-        pr_batch[batch_index] = 1.0
-
         message = Message(self.message_id, message_type, self, route, delays, pr_target,False)
-        #batch
-        message.batch_id = batch_id
-        message.pr_batch = pr_batch
-
-        for m in self.simulation.all_msgs:
-            if len(m.pr_batch) < self.simulation.total_batches:
-                m.pr_batch += [0.0] * (self.simulation.total_batches - len(m.pr_batch))
-
-        self.simulation.batch_to_msgs[batch_id].append(message)
-        self.simulation.all_msgs.append(message)
-        self.simulation.msg_to_batch_prob[message.id] = pr_batch
-        print(f"[Batch Debug] Created message {message.id} in {batch_id} with pr_batch={pr_batch}")
-        print(f"[Batch Tracking] msg={self.message_id} → {batch_id} | count={self.message_counter_within_batch}")
-        print(f"[Batch Count] Total batches so far: {self.simulation.total_batches}")
-
+       
         if self.message_id == 1 and self.id ==1:
             for i in range(len(self.probability_dist_mixes)):
                 if self.simulation.printing:
@@ -210,25 +166,11 @@ class Client:
     def receive_message(self, message):
         message.timeReceived = self.env.now
         self.log.received_messages_f(message)
-        self.update_and_log_anonymity_stats(message)
         if message.target_bool and self.simulation.printing:
             print(f'Target message arrived at destination Client at time {self.env.now}')
         if message.type == 'Real' or message.type == 'ClientDummy':
             message.route[0].receive_ack(message)
-            self.simulation.retroactive_update_pr_batch(message)
     
-    def update_and_log_anonymity_stats(self, msg):
-        print(f"[Receiver Debug] Final pr_batch for msg {msg.id}: {msg.pr_batch}")
-        # Compute anonymity set
-        threshold = 0.01  # You can adjust this
-        anon_set = [i for i, p in enumerate(msg.pr_batch) if p > threshold]
-        anon_size = len(anon_set)
-        # Update global stats
-        self.simulation.total_received_msgs += 1
-        self.simulation.total_anonymity_size += anon_size
-        avg_anon_size = self.simulation.total_anonymity_size / self.simulation.total_received_msgs
-        print(f"[Anonymity Debug] msg={msg.id} | Set={anon_set} | Size={anon_size} | Avg Anonymity Size={avg_anon_size:.2f}")
-
     def send_message(self, message_type, rate_client):
         while True:
             message, sending_time = self.create_message(message_type, rate_client)

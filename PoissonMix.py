@@ -84,29 +84,11 @@ class PoissonMix(Mix):
                     self.env.process(self.send_msg(msg))
     def send_msg(self, msg):
         yield self.env.timeout(msg.delays[self.layer])
-        self.update_pr_batch(msg)
         self.update_probabilities(msg, len(self.pool))
         next_hop_index = msg.route[msg.next_hop_index]
         self.pool.remove(msg)
         self.env.process(self.simulation.attacker.relay(msg, next_hop_index))
-
-    def update_pr_batch(self, msg):
-        if self.corrupt:
-            return  # skip if mix is corrupt
-        pool = [m for m in self.pool if m.type == 'Real']  # consider only real messages
-        total_msgs = len(pool)
-        if total_msgs == 0:
-            return
-        # Sum all batch vectors in the pool
-        total_batch_vec = np.zeros(self.simulation.total_batches)
-        for m in pool:
-            total_batch_vec += np.array(m.pr_batch)
-        # Normalize to get probability distribution over batches
-        normalized_batch_probs = total_batch_vec / total_msgs
-        msg.pr_batch = normalized_batch_probs.tolist()
-        if self.simulation.printing:
-            print(f"[Mix {self.id}] Updated pr_batch for msg {msg.id}: {msg.pr_batch}")
-            
+ 
     def update_probabilities(self, msg, pool_size):
         if not self.corrupt:
             for j in range(0, self.n_targets):

@@ -1,5 +1,5 @@
 class Message:
-    def __init__(self, id, type, sender, route, delays, pr_target, target_bool, batch_id=None):
+    def __init__(self, id, type, sender, route, delays, pr_target, target_bool):
         self.id = "%d_%d" % (sender.id, id)
         self.type = type  # Dummy or Real packet
         self.sender = sender  # sender object
@@ -10,7 +10,4 @@ class Message:
         self.time_left = 0
         self.next_hop_index = 1
 
-        #batch
-        self.batch_id = batch_id                    # Batch ID string (e.g., "batch_3")
-        self.pr_batch = None                        # Probability vector over batch origins
-        
+      

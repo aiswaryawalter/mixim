@@ -1,8 +1,8 @@
 
 class Log:
     def __init__(self):
-        self.sent_messages = {"MessageID": [], "BatchID": [], "MessageType": [], "MessageTimeLeft" :[], "MessageDelay": [], "MessageRoute" :[]}
-        self.received_messages = {"MessageID": [], "BatchID": [], "MessageType": [], "MessageTimeLeft" :[],"MessageTimeReceived":[], "MessageDelay": [], "MessageRoute" :[],"MessageTarget" : [] }
+        self.sent_messages = {"MessageID": [], "MessageType": [], "MessageTimeLeft" :[], "MessageDelay": [], "MessageRoute" :[]}
+        self.received_messages = {"MessageID": [], "MessageType": [], "MessageTimeLeft" :[],"MessageTimeReceived":[], "MessageDelay": [], "MessageRoute" :[],"MessageTarget" : [] }
         self.dummy_messages = {"DroppingNode":[],"DummyID": [], "DummyType": [], "DummyTimeLeft" :[], "DummyDelay": [], "DummyRoute" :[], "DummyPr":[]}
     def dummies_dropped_end_link(self, dummy, dropping_node):
         self.dummy_messages["DroppingNode"].append(dropping_node)
@@ -15,7 +15,6 @@ class Log:
 
     def sent_messages_f(self, msg):
         self.sent_messages["MessageID"].append(msg.id)
-        self.sent_messages["BatchID"].append(msg.batch_id)
         self.sent_messages["MessageType"].append(msg.type)
         self.sent_messages["MessageTimeLeft"].append(msg.time_left)
         self.sent_messages["MessageDelay"].append(msg.delays)
@@ -23,7 +22,6 @@ class Log:
 
     def received_messages_f(self, msg):
         self.received_messages["MessageID"].append(msg.id)
-        self.received_messages["BatchID"].append(msg.batch_id)
         self.received_messages["MessageType"].append(msg.type)
         self.received_messages["MessageTimeLeft"].append(msg.time_left)
         self.received_messages["MessageTimeReceived"].append(msg.timeReceived)
