@@ -95,10 +95,16 @@ class PoissonMix(Mix):
                     self.env.process(self.send_msg(msg))
 
     def send_msg(self, msg):
+        hop_index = msg.next_hop_index - 1  # because next_hop_index starts at 1 after leaving client
+        if hop_index < 0:
+            hop_index = 0  # safety for first hop
+        delay_for_this_hop = msg.delays[hop_index + 1] 
         send_time = self.env.now
-        yield self.env.timeout(msg.delays[self.layer])
+        print(f"[LatencyMatrix] Delay of Msg {msg.id} (hop {hop_index}) => {delay_for_this_hop}")
+        yield self.env.timeout(delay_for_this_hop)
         recv_time = self.env.now
         observed_latency = recv_time - send_time
+        print(f"[LatencyMatrix] Observed Delay of Msg {msg.id} (hop {hop_index}) => {observed_latency}")
         self.update_probabilities(msg, len(self.pool))
         next_hop = msg.route[msg.next_hop_index]
         msg.time_left = recv_time

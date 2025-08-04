@@ -3,6 +3,9 @@ from Pool import Pool
 from TimedMix import TimedMix
 
 import random
+import pandas as pd
+import numpy as np
+from sklearn.cluster import KMeans
 
 
 class Network:
@@ -35,7 +38,28 @@ class Network:
         self.numberTargets = numberTargets
         self.list_cascades = {}
         self.n_cascades = 6
+
+        # larmix
+        self.latency_matrix = simulation.latency_matrix
+        self.node_coords = simulation.node_coords
+        # self.layers = self.diversify_layers(self.nodes, self.node_coords, self.n_layers)
+
+        self.server_info = pd.read_csv('servers.csv')
+        # self.latency_info = pd.read_csv('latency.csv')
+        # self.latency_map = self.build_latency_map()
+
         self.create_network()
+    
+    # larmix
+    # def build_latency_map(self):
+    #     latency_map = {}
+    #     for _, row in self.latency_info.iterrows():
+    #         src = row['source_id']
+    #         dst = row['target_id']
+    #         latency = row['latency_ms'] / 1000.0  # convert to seconds
+    #         latency_map[(src, dst)] = latency
+    #         latency_map[(dst, src)] = latency  # symmetric
+    #     return latency_map
 
     def create_network(self):
         mixnb = 1
@@ -61,23 +85,48 @@ class Network:
                             varCorrupt = False
                     mix = self.get_mixnode(self.mix_type, mixnb, layer, self.numberTargets, varCorrupt,
                                            self.probability_dist_mixes[layer - 1][_])
+                    # larmix
+                    server_row = self.server_info.iloc[(mixnb - 1) % len(self.server_info)]
+                    mix.server_id = server_row['id']
+                    # mix.location = server_row['location']
                     self.all_mixes.add(mix)
                     self.network_dict[layer] += [mix]
                     mixnb += 1
+            if self.simulation.routing == "larmix":
+                # prepare coordinates mapping
+                coords = {row['id']: (row['latitude'], row['longitude'])
+                        for _, row in self.server_info.iterrows()}
 
-            for mix in self.all_mixes:
-                if self.fully_connected:
-                    if mix.layer + 1 in self.network_dict:  # last mix doesn't need neighbors
-                        mix.neighbors = self.network_dict[mix.layer + 1]
-                    if mix.layer == self.simulation.n_layers:
-                        mix.neighbors = self.network_dict[1]
-                else:
-                    pass
-                    #for mix in self.MixesAll:
-                        #if mix.id == 1:
-                            #mix.neighbors = []
-                            #mix.neighbors.append(self.LayerDict[mix.layer + 1][0])
-                            #mix.neighbors.append(self.LayerDict[mix.layer + 1][1])
+                mix_ids = [mix.server_id for mix in self.all_mixes]
+                diversified_layers = self.diversify_layers(mix_ids, coords, self.num_layers, self.mixesPerLayer)
+                if any(len(layer) == 0 for layer in diversified_layers):
+                    print("[ERROR] Diversification produced empty layer.")
+                    return
+
+                # rebuild network_dict based on diversified layers
+                self.network_dict = {}
+                for layer_idx, layer_server_ids in enumerate(diversified_layers, start=1):
+                    self.network_dict[layer_idx] = [mix for mix in self.all_mixes
+                                                    if mix.server_id in layer_server_ids]
+                    # neighbor assignment
+                    if layer_idx < self.num_layers and (layer_idx + 1) in self.network_dict:
+                        for mix in self.network_dict[layer_idx]:
+                            mix.neighbors = self.network_dict[layer_idx + 1]
+                
+            else:
+                for mix in self.all_mixes:
+                    if self.fully_connected:
+                        if mix.layer + 1 in self.network_dict:  # last mix doesn't need neighbors
+                            mix.neighbors = self.network_dict[mix.layer + 1]
+                        if mix.layer == self.simulation.n_layers:
+                            mix.neighbors = self.network_dict[1]
+                    else:
+                        pass
+                        #for mix in self.MixesAll:
+                            #if mix.id == 1:
+                                #mix.neighbors = []
+                                #mix.neighbors.append(self.LayerDict[mix.layer + 1][0])
+                                #mix.neighbors.append(self.LayerDict[mix.layer + 1][1])
         elif self.topology == 'cyclic_stratified':
             for layer in range(1, self.simulation.n_layers + 1):
                 self.network_dict[layer] = []
@@ -94,6 +143,9 @@ class Network:
                     self.all_mixes.add(mix)
                     self.network_dict[layer].append(mix)
                     mixnb += 1
+                    # larmix
+                    # server_row = self.server_info.iloc[(mixnb - 1) % len(self.server_info)]
+                    # mix.server_id = server_row['server_id']
             for layer in range(1, self.simulation.n_layers + 1):
                 next_layer = (layer % self.simulation.n_layers) + 1
                 for mix in self.network_dict[layer]:
@@ -145,9 +197,12 @@ class Network:
                 )
                 self.all_mixes.add(mix)
                 self.network_dict[1].append(mix)
+                # larmix
+                # server_row = self.server_info.iloc[i % len(self.server_info)]
+                # mix.server_id = server_row['server_id']
 
-            # 2) Define a connectivity or neighbor relationship for "free route"
-            #    For example, each mix can have some random neighbors:
+
+            # Define a connectivity or neighbor relationship for "free route"
             list_of_mixes = self.network_dict[1]
             for mix in list_of_mixes:
                 # Suppose we want each mix to have k random neighbors
@@ -180,6 +235,10 @@ class Network:
                 )
                 self.network_dict[1].append(mix)
                 self.all_mixes.add(mix)
+                # larmix
+                # server_row = self.server_info.iloc[i % len(self.server_info)]
+                # mix.server_id = server_row['server_id']
+                
             # assign neighbors based on adjacency_list
             for node_id, mix in enumerate(self.network_dict[1]):
                 neighbor_ids = adjacency_list[node_id]
@@ -241,3 +300,123 @@ class Network:
 
         return adjacency_list
 
+    # def diversify_layers(nodes, coords, n_layers):
+    #     X = np.array([coords[node] for node in nodes])
+    #     kmeans = KMeans(n_clusters=n_layers).fit(X)
+    #     labels = kmeans.labels_
+
+    #     layers = [[] for _ in range(n_layers)]
+    #     for cluster_id in range(n_layers):
+    #         cluster_nodes = [node for node, label in zip(nodes, labels) if label == cluster_id]
+    #         for i, node in enumerate(cluster_nodes):
+    #             layer_index = i % n_layers
+    #             layers[layer_index].append(node)
+    #     return layers
+
+    def greedy_balance(scattering_matrix):
+        tolerance = 1e-3
+        balanced = False
+        while not balanced:
+            load = np.sum(scattering_matrix, axis=0)
+            overloaded = np.where(load > 1 + tolerance)[0]
+            underloaded = np.where(load < 1 - tolerance)[0]
+            if len(overloaded) == 0 and len(underloaded) == 0:
+                balanced = True
+                break
+            for idx in overloaded:
+                scale = 1 / load[idx]
+                scattering_matrix[:, idx] *= scale
+            load = np.sum(scattering_matrix, axis=0)
+            deficit = 1 - load[underloaded]
+            total_deficit = np.sum(deficit)
+            if total_deficit > 0:
+                add_fraction = deficit / total_deficit
+                scattering_matrix[:, underloaded] += (add_fraction * np.sum(load[overloaded] - 1))
+        return scattering_matrix
+    
+    def diversify_layers(self, mix_ids, coords, num_layers, mixes_per_layer):
+        """
+        Creates geographically diversified layers.
+        
+        Args:
+            mix_ids: list of mix server_ids (one per mix node)
+            coords: dict {server_id: (lat, lon)}
+            num_layers: number of layers (stratified depth)
+            mixes_per_layer: number of mixes per layer
+        
+        Returns:
+            layers: list of layers, each layer = list of server_ids
+        """
+        # --- prepare coordinate matrix for clustering ---
+        X = np.array([coords[mix_id] for mix_id in mix_ids])
+        kmeans = KMeans(n_clusters=mixes_per_layer, random_state=42).fit(X)
+        labels = kmeans.labels_
+
+        # --- group mixes by cluster ---
+        cluster_to_nodes = {i: [] for i in range(mixes_per_layer)}
+        for mix_id, label in zip(mix_ids, labels):
+            cluster_to_nodes[label].append(mix_id)
+
+        # --- create layers by picking one node from each cluster for every layer ---
+        layers = [[] for _ in range(num_layers)]
+        used_nodes = set()
+        for layer_idx in range(num_layers):
+            for cluster_idx in range(mixes_per_layer):
+                candidates = [node for node in cluster_to_nodes[cluster_idx] if node not in used_nodes]
+                if not candidates:  # cluster exhausted → pick any unused node
+                    remaining = [node for node in mix_ids if node not in used_nodes]
+                    if not remaining:
+                        raise ValueError("Not enough unique mixes to fill layers.")
+                    node = random.choice(remaining)
+                else:
+                    node = random.choice(candidates)
+                layers[layer_idx].append(node)
+                used_nodes.add(node)
+
+        return layers
+
+    def sample_latency_aware_path(self, tau):
+        """
+        Latency-aware path selection for stratified topology.
+        One node per layer chosen based on latency and tau parameter.
+        """
+        path = []
+
+        # --- Pick first layer node randomly ---
+        current_node = np.random.choice(self.network_dict[1])
+        path.append(current_node)
+
+        # --- Pick one node from each remaining layer ---
+        for layer_idx in range(2, self.num_layers + 1):
+            next_layer_nodes = self.network_dict[layer_idx]
+
+            # Get latencies
+            latencies = [
+                self.latency_matrix.get((current_node.server_id, node.server_id), 50.0)
+                for node in next_layer_nodes
+            ]
+            # print(f"[DEBUG] Latencies from node {current_node.server_id}: {latencies}")
+            # Rank nodes based on latency
+            sorted_indices = np.argsort(latencies)
+            rank_map = {next_layer_nodes[idx]: rank for rank, idx in enumerate(sorted_indices)}
+            # print(f"[DEBUG] Rank map: {{node.server_id: rank for node, rank in rank_map.items()}}")
+            # print(f"[DEBUG] sorted_indices: {sorted_indices}")
+
+            # Compute weights
+            weights = []
+            for node in next_layer_nodes:
+                rank = rank_map[node]
+                lij = self.latency_matrix.get((current_node.server_id, node.server_id), 50.0)
+                weight = ((1 / np.e) ** (rank * (1 - tau))) * ((1 / lij) ** (1 - tau))
+                weights.append(weight)
+
+            weights = np.array(weights) / np.sum(weights)
+            # print(f"[DEBUG] Normalized weights: {weights}")
+            next_node = np.random.choice(next_layer_nodes, p=weights)
+
+            path.append(next_node)
+            # print(f"[DEBUG] Selected node from Layer {layer_idx}: {next_node.server_id}")
+            current_node = next_node
+        print(f"[DEBUG] Latency Aware Path: {path}")
+
+        return path
