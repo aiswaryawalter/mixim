@@ -24,6 +24,11 @@ class Client:
         self.rate_client_dummies = rate_client_dummies
         self.log = Log
 
+        # batch
+        self.batch_size = 5   # configurable, later move to config
+        self.current_batch_id = None
+        self.message_counter_within_batch = 0
+
         if self.simulation.topology == 'stratified':
             for layer in range(1, len(self.network_dict) + 1):
                 self.all_mixes += self.network_dict[layer]
@@ -152,7 +157,21 @@ class Client:
         route_ids += [receiver.id]
         print(f"[Debug] ==>> route: {route}") 
 
-        message = Message(self.message_id, message_type, self, route, delays, pr_target,False)
+        # batch
+        if self.message_counter_within_batch == 0:
+            # start a new batch
+            self.current_batch_id = f"client{self.id}_batch_{self.simulation.client_batch_counters[self.id]}"
+            self.simulation.all_batch_ids.append(self.current_batch_id)
+            self.simulation.client_batch_counters[self.id] += 1
+
+        message = Message(self.message_id, message_type, self, route, delays, pr_target,False, batch_id=self.current_batch_id)
+
+        # batch: track in simulation
+        self.simulation.batch_to_msgs[self.current_batch_id].append(message)
+        self.simulation.all_msgs.append(message)
+        self.message_counter_within_batch += 1
+        if self.message_counter_within_batch >= self.batch_size:
+            self.message_counter_within_batch = 0
        
         if self.message_id == 1 and self.id ==1:
             for i in range(len(self.probability_dist_mixes)):
@@ -166,6 +185,13 @@ class Client:
     def receive_message(self, message):
         message.timeReceived = self.env.now
         self.log.received_messages_f(message)
+
+        # batch
+        self.simulation.current_outgoing_batch.add(message.id)
+        # batch: finalize when size matches batch size
+        if len(self.simulation.current_outgoing_batch) >= self.batch_size:
+            self.simulation.finalize_outgoing_batch()
+
         if message.target_bool and self.simulation.printing:
             print(f'Target message arrived at destination Client at time {self.env.now}')
         if message.type == 'Real' or message.type == 'ClientDummy':

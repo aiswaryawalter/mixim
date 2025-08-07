@@ -2,11 +2,13 @@ import simpy
 import Client
 from Network import Network
 import pandas as pd
+import math
 import numpy as np
 from Relay import Attacker
 from Log import Log
 from util import XRD_New
 import os
+from collections import defaultdict
 
 DEFAULT_TOPOLOGY = 'stratified'
 logDir = 'Logs/'
@@ -56,6 +58,15 @@ class Simulation(object):
         self.flush_timeout = flush_timeout
         self.n_targets = 0
         self.MsgsDropped = []
+
+        # batch
+        self.batch_to_msgs = defaultdict(list)    # batch_id → [Message objects]
+        self.client_batch_counters = defaultdict(int)  # per client batch counters
+        self.all_batch_ids = []                  # list of all batch IDs
+        self.all_msgs = []                       # all messages (for reference)
+
+        self.outgoing_batches = []               # list of sets of message IDs (observed output)
+        self.current_outgoing_batch = set()      # temporarily collect messages exiting
 
         self.dummyID = 0
         time_stable = ((1 / self.rate_client) / self.n_layers) * self.mu + 2
@@ -259,26 +270,36 @@ class Simulation(object):
         else:
             pass
 
-        entropy = []
-        for i in range(0, self.n_targets):
-            entropy.append(0.0)
-        tableProb = df_received_messages['MessageTarget'].to_numpy(copy=True)
-        for j in range(0, self.n_targets):
-            for m in range(len(tableProb)):
-                if tableProb[m][j] != 0:
-                    entropy[j] += - tableProb[m][j] * np.log2(tableProb[m][j])
+        # message level entropy
+        # entropy = []
+        # for i in range(0, self.n_targets):
+        #     entropy.append(0.0)
+        # tableProb = df_received_messages['MessageTarget'].to_numpy(copy=True)
+        # for j in range(0, self.n_targets):
+        #     for m in range(len(tableProb)):
+        #         if tableProb[m][j] != 0:
+        #             entropy[j] += - tableProb[m][j] * np.log2(tableProb[m][j])
 
+        # dict_entropy = {'Entropy': entropy}
+        # df_entropy = pd.DataFrame(dict_entropy)
+        # df_entropy.to_csv(f'{logDir}{self.n_layers}layers_{self.n_mixes_per_layer}mixes_player_Entropy.csv')
+
+        # entropy_mean = np.mean(entropy)
+        # try:
+        #     entropy_median = np.median(entropy)
+        #     entropy_q25 = np.quantile(entropy, .25)
+        # except:
+        #     entropy_median = 0
+        #     entropy_q25 = 0
+
+        # --- Batch-level entropy ---
+        entropy = self.compute_batch_entropy()
+
+        # Save entropy values to CSV
         dict_entropy = {'Entropy': entropy}
         df_entropy = pd.DataFrame(dict_entropy)
-        df_entropy.to_csv(f'{logDir}{self.n_layers}layers_{self.n_mixes_per_layer}mixes_player_Entropy.csv')
+        df_entropy.to_csv(f'{logDir}{self.n_layers}layers_{self.n_mixes_per_layer}mixes_player_BatchEntropy.csv')
 
-        entropy_mean = np.mean(entropy)
-        try:
-            entropy_median = np.median(entropy)
-            entropy_q25 = np.quantile(entropy, .25)
-        except:
-            entropy_median = 0
-            entropy_q25 = 0
 
         sum_delays = 0
         for re, le in zip(self.Log.received_messages["MessageTimeReceived"],
@@ -309,3 +330,38 @@ class Simulation(object):
         entropy_q25 = float(np.quantile(entropy, .25))
 
         return entropy, entropy_mean, entropy_median, entropy_q25
+    
+    # batch
+    def compute_anonymity_set_for_outgoing_batch(self, outgoing_batch):
+        anonymity_set = []
+        out_size = len(outgoing_batch)
+        for batch_id, msgs in self.batch_to_msgs.items():
+            if len(msgs) == out_size:
+                anonymity_set.append(batch_id)
+        return anonymity_set
+    
+    # batch
+    def finalize_outgoing_batch(self):
+        if not self.current_outgoing_batch:
+            return
+        outgoing_batch = self.current_outgoing_batch.copy()
+        self.outgoing_batches.append(outgoing_batch)
+        self.current_outgoing_batch.clear()
+        # Compute anonymity set for this batch
+        anon_set = self.compute_anonymity_set_for_outgoing_batch(outgoing_batch)
+        print(f"[Anonymity] Outgoing batch {outgoing_batch} → anonymity set {anon_set}")
+        print(f"[Anonymity] Anonymity Set Size ={len(anon_set)}")
+
+    # batch
+    def compute_batch_entropy(self):
+        entropies = []
+        for outgoing_batch in self.outgoing_batches:
+            anon_set = self.compute_anonymity_set_for_outgoing_batch(outgoing_batch)
+            if len(anon_set) > 0:
+                H = math.log2(len(anon_set))  # uniform probability assumption
+            else:
+                H = 0.0
+            entropies.append(H)
+        if len(entropies) == 0:
+            return [], 0.0, 0.0, 0.0
+        return entropies

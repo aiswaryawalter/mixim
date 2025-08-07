@@ -1,5 +1,5 @@
 class Message:
-    def __init__(self, id, type, sender, route, delays, pr_target, target_bool):
+    def __init__(self, id, type, sender, route, delays, pr_target, target_bool, batch_id=None):
         self.id = "%d_%d" % (sender.id, id)
         self.type = type  # Dummy or Real packet
         self.sender = sender  # sender object
@@ -9,5 +9,7 @@ class Message:
         self.target_bool = target_bool  # True if this message is a target message
         self.time_left = 0
         self.next_hop_index = 1
+        # batch
+        self.batch_id = batch_id
 
       
