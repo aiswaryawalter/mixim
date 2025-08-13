@@ -98,6 +98,7 @@ class Network:
                         for _, row in self.server_info.iterrows()}
 
                 mix_ids = [mix.server_id for mix in self.all_mixes]
+                print(f"[Larmix] Mix ids ==> {mix_ids}")
                 diversified_layers = self.diversify_layers(mix_ids, coords, self.num_layers, self.mixesPerLayer)
                 if any(len(layer) == 0 for layer in diversified_layers):
                     print("[ERROR] Diversification produced empty layer.")
@@ -105,13 +106,15 @@ class Network:
 
                 # rebuild network_dict based on diversified layers
                 self.network_dict = {}
-                for layer_idx, layer_server_ids in enumerate(diversified_layers, start=1):
-                    self.network_dict[layer_idx] = [mix for mix in self.all_mixes
+                for layer_id, layer_server_ids in enumerate(diversified_layers, start=1):
+                    self.network_dict[layer_id] = [mix for mix in self.all_mixes
                                                     if mix.server_id in layer_server_ids]
+                    for mix in self.network_dict[layer_id]:
+                        mix.layer = layer_id
                     # neighbor assignment
-                    if layer_idx < self.num_layers and (layer_idx + 1) in self.network_dict:
-                        for mix in self.network_dict[layer_idx]:
-                            mix.neighbors = self.network_dict[layer_idx + 1]
+                    if layer_id < self.num_layers and (layer_id + 1) in self.network_dict:
+                        for mix in self.network_dict[layer_id]:
+                            mix.neighbors = self.network_dict[layer_id + 1]
                 
             else:
                 for mix in self.all_mixes:
@@ -300,19 +303,6 @@ class Network:
 
         return adjacency_list
 
-    # def diversify_layers(nodes, coords, n_layers):
-    #     X = np.array([coords[node] for node in nodes])
-    #     kmeans = KMeans(n_clusters=n_layers).fit(X)
-    #     labels = kmeans.labels_
-
-    #     layers = [[] for _ in range(n_layers)]
-    #     for cluster_id in range(n_layers):
-    #         cluster_nodes = [node for node, label in zip(nodes, labels) if label == cluster_id]
-    #         for i, node in enumerate(cluster_nodes):
-    #             layer_index = i % n_layers
-    #             layers[layer_index].append(node)
-    #     return layers
-
     def greedy_balance(scattering_matrix):
         tolerance = 1e-3
         balanced = False
@@ -399,15 +389,16 @@ class Network:
             # Rank nodes based on latency
             sorted_indices = np.argsort(latencies)
             rank_map = {next_layer_nodes[idx]: rank for rank, idx in enumerate(sorted_indices)}
-            # print(f"[DEBUG] Rank map: {{node.server_id: rank for node, rank in rank_map.items()}}")
-            # print(f"[DEBUG] sorted_indices: {sorted_indices}")
-
+            # print(f"[DEBUG] Sorted_indices of Layer {layer_idx}: {sorted_indices}")
+            # print(f"[DEBUG] Rank map of Layer {layer_idx}: {rank_map}")
+            
             # Compute weights
             weights = []
             for node in next_layer_nodes:
                 rank = rank_map[node]
                 lij = self.latency_matrix.get((current_node.server_id, node.server_id), 50.0)
                 weight = ((1 / np.e) ** (rank * (1 - tau))) * ((1 / lij) ** (1 - tau))
+                # print(f"[DEBUG] Mixnode {node.id} -> from Server ID {current_node.server_id} to {node.server_id} Latency : {lij}, Weight: {weight}")
                 weights.append(weight)
 
             weights = np.array(weights) / np.sum(weights)
@@ -415,7 +406,7 @@ class Network:
             next_node = np.random.choice(next_layer_nodes, p=weights)
 
             path.append(next_node)
-            # print(f"[DEBUG] Selected node from Layer {layer_idx}: {next_node.server_id}")
+            # print(f"[DEBUG] Selected node from Layer {layer_idx}-> Server ID: {next_node.server_id}, Mix ID: {next_node.id}")
             current_node = next_node
         print(f"[DEBUG] Latency Aware Path: {path}")
 

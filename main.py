@@ -17,7 +17,6 @@ def main(rate):
 
     # larmix
     latency_bound = config.getfloat('TOPOLOGY', 'latency_bound', fallback=10.0)
-    num_path_samples = config.getint('TOPOLOGY', 'num_path_samples', fallback=5)
     tau = float(config.get("TOPOLOGY", "tau", fallback=0.6))
     balancing = config.get("TOPOLOGY", "balancing", fallback="greedy")
 
@@ -60,7 +59,7 @@ def main(rate):
     simulation = Simulation(mix_type=mix_type, simDuration=50, rate_client=1/lambda_c, mu=mu, logging=True,
                             topology=topology,fully_connected= fully_connected, n_clients=n_clients, n_hops=n_hops,
                             flush_percent=flush_percent, printing=True, flush_timeout=timeout, threshold=threshold, routing=routing, 
-                            latency_bound=latency_bound, num_path_samples=num_path_samples, tau=tau, balancing=balancing,
+                            latency_bound=latency_bound, tau=tau, balancing=balancing,
                             n_layers=n_layer, n_mixes_per_layer=n_mix_per_layer,corrupt= corrupt_mixes,unifrom_corruption= balanced_corruption,
                             probability_dist_mixes=weights,nbr_cascacdes = n_cascade, m_barabasi_mixes = m_barabasi_mixes, client_dummies=client_dummies,
                             rate_client_dummies = rate_client_dummies, link_based_dummies = link_dummies, multiple_hops_dummies = multiple_hops_dummies,

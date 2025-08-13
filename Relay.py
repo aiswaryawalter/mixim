@@ -42,8 +42,7 @@ class Attacker:
                 yield self.env.timeout(2) # default_value = 2
                 self.var = True
                 
-        yield self.env.timeout(msg.delays[msg.next_hop_index])
-        # yield self.env.timeout(0.05)  # 'link' delay
+        yield self.env.timeout(0.05)  # 'link' delay
         receiver.receive_message(msg)
         self.checkEndSim()
 
