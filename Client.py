@@ -5,7 +5,7 @@ import numpy as np
 import random
 
 class Client:
-    def __init__(self, simulation, id, network_dict, rate_client, mu, probability_dist_mixes, n_targets, n_hops, client_dummies, rate_client_dummies, Log):
+    def __init__(self, simulation, id, network_dict, rate_client, mu, probability_dist_mixes, n_targets, n_hops, client_dummies, rate_client_dummies, Log, batch_size):
         self.id = id
         self.env = simulation.env
         self.simulation = simulation  # simulation object
@@ -20,6 +20,7 @@ class Client:
         self.all_mixes = []
         self.n_targets = n_targets
         self.n_hops = n_hops
+        self.batch_size = batch_size
         self.client_dummies = client_dummies
         self.rate_client_dummies = rate_client_dummies
         self.log = Log

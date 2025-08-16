@@ -20,6 +20,7 @@ def main(rate):
     n_clients = int(config['DEFAULT']['n_clients'])
     lambda_c =  float(config['DEFAULT']['lambda_c'])
     n_hops =  int(config['DEFAULT']['n_hops'])
+    batch_size = int(config['DEFAULT']['batch_size'])
     #For Stratified Topology
     n_layer = int(config['TOPOLOGY']['n_layers'])
     n_mix_per_layer = int(config['TOPOLOGY']['l_mixes_per_layer'])
@@ -58,7 +59,7 @@ def main(rate):
                             n_mixes_per_layer=n_mix_per_layer,corrupt= corrupt_mixes,unifrom_corruption= balanced_corruption,
                             probability_dist_mixes=weights,nbr_cascacdes = n_cascade, m_barabasi_mixes = m_barabasi_mixes, client_dummies=client_dummies,
                             rate_client_dummies = rate_client_dummies, link_based_dummies = link_dummies, multiple_hops_dummies = multiple_hops_dummies,
-                            rate_mix_dummies = rate_mix_dummies, Network_template=None)
+                            rate_mix_dummies = rate_mix_dummies, Network_template=None, batch_size=batch_size)
 
     now = time.time()
     entropy, entropy_mean, entropy_median , entropy_q25= simulation.run()

@@ -19,7 +19,7 @@ class Simulation(object):
     def __init__(self, mix_type, simDuration, rate_client, mu, logging, topology, fully_connected, n_clients, n_hops, 
                  flush_percent, printing, flush_timeout, threshold, routing, n_layers,
                  n_mixes_per_layer, corrupt, unifrom_corruption, probability_dist_mixes, nbr_cascacdes, m_barabasi_mixes, client_dummies,
-                 rate_client_dummies, link_based_dummies, multiple_hops_dummies, rate_mix_dummies, Network_template):
+                 rate_client_dummies, link_based_dummies, multiple_hops_dummies, rate_mix_dummies, Network_template, batch_size):
 
         self.Log = Log()
         self.logs = []
@@ -38,6 +38,7 @@ class Simulation(object):
 
         self.n_clients = n_clients
         self.n_hops = n_hops
+        self.batch_size = batch_size
         self.clientsSet = set()
         self.rate_client = rate_client  # average delay between messages being sent from client
         self.threshold = threshold
@@ -119,7 +120,7 @@ class Simulation(object):
         if self.topology == 'stratified':
             for client_no in range(self.n_clients):
                 client = Client.Client(self, client_no, self.network.network_dict, self.rate_client, self.mu,
-                                       probabilityDistribution, n_targets, self.n_hops, client_dummies, rate_client_dummies, Log)
+                                       probabilityDistribution, n_targets, self.n_hops, client_dummies, rate_client_dummies, Log, batch_size=self.batch_size)
                 self.clientsSet.add(client)
             for client in self.clientsSet:
                 client.other_clients = self.clientsSet - {client}
