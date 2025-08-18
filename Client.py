@@ -3,6 +3,7 @@ from Message import Message
 from numpy.random import exponential
 import numpy as np
 import random
+from BatchTracker import incoming_batches, next_incoming_batch_id, outgoing_batches, next_outgoing_batch_id, incoming_outgoing_batch_map
 
 class Client:
     def __init__(self, simulation, id, network_dict, rate_client, mu, probability_dist_mixes, n_targets, n_hops, client_dummies, rate_client_dummies, Log, batch_size):
@@ -15,6 +16,10 @@ class Client:
         self.probability_dist_mixes = probability_dist_mixes
         self.other_clients = set()
         self.message_id = 1
+        #batch-algorithm
+        self.current_batch_id = None
+        self.sent_msg_count_in_batch = 0
+        self.current_batch_receiver = None
 
         self.rate_client = rate_client
         self.all_mixes = []
@@ -41,6 +46,7 @@ class Client:
             self.env.process(self.send_message('ClientDummy', self.rate_client_dummies))
 
     def create_message(self, message_type, rate_client):
+        assert self.current_batch_receiver is not None, "Receiver for batch not set!"
         np.random.seed()
         delay_client = exponential(rate_client)
         route = [self]
@@ -146,12 +152,14 @@ class Client:
                         route.append(node)
                         route_ids.append((node.id))
         delays += [0]
-        receiver = sample(list(self.other_clients), k=1)[0]
+        # batch algorithm
+        receiver = self.current_batch_receiver
+        # receiver = sample(list(self.other_clients), k=1)[0]
         print(f"[Route Delays]: {delays}")
-        print(f"==>> receiver: {receiver} at time {self.env.now}")
+        print(f"==>> Receiver: {receiver} at time {self.env.now}")
         route += [receiver]
         route_ids += [receiver.id]
-        print(f"[Debug] ==>> route: {route}") 
+        print(f"[Debug] ==>> Route: {route}") 
 
         message = Message(self.message_id, message_type, self, route, delays, pr_target,False)
        
@@ -165,7 +173,36 @@ class Client:
         return message, delay_client
 
     def receive_message(self, message):
+        global next_outgoing_batch_id
         message.timeReceived = self.env.now
+
+        # batch algorithm
+        incoming_batch_id = message.incoming_batch_id
+
+        if incoming_batch_id not in incoming_outgoing_batch_map:
+            out_batch_id = next_outgoing_batch_id
+            next_outgoing_batch_id += 1
+            incoming_outgoing_batch_map[incoming_batch_id] = out_batch_id
+        else:
+            out_batch_id = incoming_outgoing_batch_map[incoming_batch_id]
+        print(f"==>> Inc to Out Batch Map: {incoming_outgoing_batch_map}")
+
+        # Extract incoming msg number from msg id (format: M_batchid_msgno)
+        incoming_msg_id = message.incoming_msg_id
+        incoming_msg_no = incoming_msg_id.split('_')[-1]
+
+        # Assign outgoing msg id as O_outbatchid_incomingmsgno
+        out_msg_id = f"O_{out_batch_id}_{incoming_msg_no}"
+        message.outgoing_batch_id = out_batch_id
+        message.outgoing_msg_id = out_msg_id
+        print(f'IncomingMsgID: {incoming_msg_id}\nOutgoingMsgID: {out_msg_id}')
+
+        # Update global outgoing_batches dict
+        if out_batch_id not in outgoing_batches:
+            outgoing_batches[out_batch_id] = {}
+        outgoing_batches[out_batch_id][out_msg_id] = message.timeReceived
+        print(f"==>> Outgoing Batches: {outgoing_batches}")
+        
         self.log.received_messages_f(message)
         if message.target_bool and self.simulation.printing:
             print(f'Target message arrived at destination Client at time {self.env.now}')
@@ -173,14 +210,45 @@ class Client:
             message.route[0].receive_ack(message)
     
     def send_message(self, message_type, rate_client):
+        global next_incoming_batch_id
         while True:
+            # batch-algorithm
+            # If not currently sending a batch, claim the next available batch id
+            if self.current_batch_id is None or self.sent_msg_count_in_batch >= self.batch_size:
+                self.current_batch_id = next_incoming_batch_id
+                next_incoming_batch_id += 1
+                self.sent_msg_count_in_batch = 0
+                self.current_batch_receiver = sample(list(self.other_clients), k=1)[0]
+                
+            batch_id = self.current_batch_id
+            msg_number = self.sent_msg_count_in_batch
+            msg_id = f"M_{batch_id}_{msg_number}"
+            print(f"==>> Incoming Msg id: {msg_id}")
+
             message, sending_time = self.create_message(message_type, rate_client)
+            message.incoming_batch_id = batch_id
+            message.incoming_msg_id = msg_id
+
             yield self.env.timeout(sending_time)
             print(f"==>> Sending Time: {sending_time}")
             message.time_left = self.env.now
+
+            # Track in global incoming_batches
+            if batch_id not in incoming_batches:
+                incoming_batches[batch_id] = {}
+            incoming_batches[batch_id][msg_id] = message.time_left
+            print(f"==>> Incoming Batches: {incoming_batches}")
+
             self.log.sent_messages_f(message)
             self.env.process(self.simulation.attacker.relay(message, message.route[1]))
             print(f"==>> message.route[1]: {message.route}")
+
+            # Update per-client batch message count
+            self.sent_msg_count_in_batch += 1
+
+            # If finished this batch, next loop will claim a new batch id
+            if self.sent_msg_count_in_batch >= self.batch_size:
+                self.current_batch_id = None
 
     def receive_ack(self, message):  # Message received
         pass
