@@ -3,7 +3,14 @@ from Message import Message
 from numpy.random import exponential
 import numpy as np
 import random
-from BatchTracker import incoming_batches, next_incoming_batch_id, outgoing_batches, next_outgoing_batch_id, incoming_outgoing_batch_map
+import itertools
+from BatchTracker import (incoming_batches, 
+                          next_incoming_batch_id, 
+                          outgoing_batches, 
+                          next_outgoing_batch_id, 
+                          incoming_outgoing_batch_map, 
+                          compute_batch_permutations,
+                          )
 
 class Client:
     def __init__(self, simulation, id, network_dict, rate_client, mu, probability_dist_mixes, n_targets, n_hops, client_dummies, rate_client_dummies, Log, batch_size):
@@ -185,7 +192,7 @@ class Client:
             incoming_outgoing_batch_map[incoming_batch_id] = out_batch_id
         else:
             out_batch_id = incoming_outgoing_batch_map[incoming_batch_id]
-        print(f"==>> Inc to Out Batch Map: {incoming_outgoing_batch_map}")
+        # print(f"==>> Inc to Out Batch Map: {incoming_outgoing_batch_map}")
 
         # Extract incoming msg number from msg id (format: M_batchid_msgno)
         incoming_msg_id = message.incoming_msg_id
@@ -201,14 +208,17 @@ class Client:
         if out_batch_id not in outgoing_batches:
             outgoing_batches[out_batch_id] = {}
         outgoing_batches[out_batch_id][out_msg_id] = message.timeReceived
-        print(f"==>> Outgoing Batches: {outgoing_batches}")
+        print(f"==>> {out_msg_id} Received at : {message.timeReceived}")
+        # print(f"==>> Outgoing Batches: {outgoing_batches}")
         
         self.log.received_messages_f(message)
         if message.target_bool and self.simulation.printing:
             print(f'Target message arrived at destination Client at time {self.env.now}')
         if message.type == 'Real' or message.type == 'ClientDummy':
             message.route[0].receive_ack(message)
-    
+        # Compute and print all possible permutations for each outgoing batch
+        compute_batch_permutations(message)
+
     def send_message(self, message_type, rate_client):
         global next_incoming_batch_id
         while True:
@@ -237,7 +247,8 @@ class Client:
             if batch_id not in incoming_batches:
                 incoming_batches[batch_id] = {}
             incoming_batches[batch_id][msg_id] = message.time_left
-            print(f"==>> Incoming Batches: {incoming_batches}")
+            print(f"==>> {msg_id} Left at : {message.time_left}")
+            # print(f"==>> Incoming Batches: {incoming_batches}")
 
             self.log.sent_messages_f(message)
             self.env.process(self.simulation.attacker.relay(message, message.route[1]))
@@ -258,3 +269,7 @@ class Client:
 
     def __repr__(self):
         return self.__str__()
+
+    
+
+        
