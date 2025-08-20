@@ -235,12 +235,12 @@ class Client:
             msg_id = f"M_{batch_id}_{msg_number}"
             print(f"==>> Incoming Msg id: {msg_id}")
 
-            message, sending_time = self.create_message(message_type, rate_client)
+            message, delay = self.create_message(message_type, rate_client)
             message.incoming_batch_id = batch_id
             message.incoming_msg_id = msg_id
 
-            yield self.env.timeout(sending_time)
-            print(f"==>> Sending Time: {sending_time}")
+            yield self.env.timeout(delay)
+            print(f"==>> Sending Delay: {delay}")
             message.time_left = self.env.now
 
             # Track in global incoming_batches

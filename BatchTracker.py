@@ -95,11 +95,15 @@ def compute_batch_permutations(message):
                         inc_id = batchid(inc_msgs[0])
                         out_batch_mapping_count[out_id][inc_id] += 1
         print(f"==>> OutBatchMappingCount: {out_batch_mapping_count}")
+        for out_batch in out_batch_mapping_count:
+            if out_batch not in batch_prob:
+                batch_prob[out_batch] = {}
+            for in_batch, count in out_batch_mapping_count[out_batch].items():
+                # print(f"==>> OutBatch: {out_batch}, InBatch: {in_batch} Count: {count}")
+                batch_prob[out_batch][in_batch] = count / len(valids) if len(valids) > 0 else 0
+        print(f"==>> BatchProb: {batch_prob}")
         out_batch_mapping_count.clear()
-
-
-
-                    
+        batch_prob.clear()
 
 def batchid(msg):
     parts = msg.split('_')
@@ -113,10 +117,6 @@ def append_msg(batch, msg):
     batch.append(msg)
     return batch
 
-def append_batch(x, batch):
-    x.append(batch)
-    return x
 
-def remove_batch(x, p):
-    x.pop(p)
-    return x
+
+
