@@ -1,4 +1,5 @@
 link_delay = [0.01, 0.1]
+from BatchTracker import outgoing_batches
 
 
 import numpy as np
@@ -47,7 +48,16 @@ class Attacker:
         self.checkEndSim()
 
     def checkEndSim(self):  # check to end simulation logic
-        if self.env.now >= (self.simulation.SimDuration + self.simulation.burnout)and (self.simulation.n_targets == self.n_target_chosen_attacker):
+        # batch algorithm 
+        if self.env.now >= (self.simulation.SimDuration + self.simulation.burnout) or (len(outgoing_batches) >= 100):
             if self.simulation.printing:
                 print('Simulation duration limit reached')
             self.simulation.endEvent.succeed()  # end simulation if time has expired
+
+        # previous logic
+        # if self.env.now >= (self.simulation.SimDuration + self.simulation.burnout)and (self.simulation.n_targets == self.n_target_chosen_attacker):
+            # if self.simulation.printing:
+            #         print('Simulation duration limit reached')
+            #     self.simulation.endEvent.succeed()  # end simulation if time has expired
+        
+        

@@ -233,13 +233,14 @@ class Client:
             batch_id = self.current_batch_id
             msg_number = self.sent_msg_count_in_batch
             msg_id = f"M_{batch_id}_{msg_number}"
-            print(f"==>> Incoming Msg id: {msg_id}")
+            
 
             message, delay = self.create_message(message_type, rate_client)
             message.incoming_batch_id = batch_id
             message.incoming_msg_id = msg_id
 
             yield self.env.timeout(delay)
+            print(f"==>> Incoming Msg id: {msg_id}")
             print(f"==>> Sending Delay: {delay}")
             message.time_left = self.env.now
 
@@ -248,7 +249,7 @@ class Client:
                 incoming_batches[batch_id] = {}
             incoming_batches[batch_id][msg_id] = message.time_left
             print(f"==>> {msg_id} Left at : {message.time_left}")
-            # print(f"==>> Incoming Batches: {incoming_batches}")
+            print(f"==>> Incoming Batches: {incoming_batches}")
 
             self.log.sent_messages_f(message)
             self.env.process(self.simulation.attacker.relay(message, message.route[1]))
