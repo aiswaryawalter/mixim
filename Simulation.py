@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 from Relay import Attacker
 from Log import Log
+from Metrics import Metrics
 from util import XRD_New
 import os
 
@@ -21,7 +22,9 @@ class Simulation(object):
                  n_mixes_per_layer, corrupt, unifrom_corruption, probability_dist_mixes, nbr_cascacdes, m_barabasi_mixes, client_dummies,
                  rate_client_dummies, link_based_dummies, multiple_hops_dummies, rate_mix_dummies, Network_template, batch_size):
 
+        self.logDir = logDir
         self.Log = Log()
+        self.Metrics = Metrics()
         self.logs = []
         self.logging = logging
         self.printing = printing
@@ -248,6 +251,7 @@ class Simulation(object):
             print('----------Simulation Ended---------')
             print('\n')
 
+        self.Metrics.save(logDir, self.env.now)
         # Data from Clients(senders and receivers)
         df_sent_messages = pd.DataFrame(self.Log.sent_messages)
         df_received_messages = pd.DataFrame(self.Log.received_messages)

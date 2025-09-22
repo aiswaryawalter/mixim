@@ -217,7 +217,7 @@ class Client:
         if message.type == 'Real' or message.type == 'ClientDummy':
             message.route[0].receive_ack(message)
         # Compute and print all possible permutations for each outgoing batch
-        compute_batch_permutations(message)
+        compute_batch_permutations(self, message)
 
     def send_message(self, message_type, rate_client):
         global next_incoming_batch_id

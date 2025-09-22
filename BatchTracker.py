@@ -1,5 +1,6 @@
 
 from collections import defaultdict, Counter
+import time, calendar
 
 next_incoming_batch_id = 0
 next_outgoing_batch_id = 0
@@ -12,11 +13,18 @@ out_batch_mapping_count = defaultdict(Counter)
 out_msg_mapping_set = {} 
 anonymity_set = {}
 anonymity_set_size = {}
+msg_count = 0
+window_size = 2
+window_index = 0
+last_metrics_save_time = 0
+metrics_save_interval = 5 # 20 sim time units; set to 3600 seconds for 1 hour; set to 7200 for 2 hours
 
-def compute_batch_permutations(message):
-        global valids
+def compute_batch_permutations(self, message):
+        global valids, msg_count, window_index, last_metrics_save_time
+        msg_count += 1
         out_batch_id = message.outgoing_batch_id
         out_msg_id = message.outgoing_msg_id
+        incoming_outgoing_batch_map[out_batch_id] = message.incoming_batch_id
         out_msg_mapping_set[out_msg_id] = set()
         out_msg_time = outgoing_batches[out_batch_id][out_msg_id]
         print(f"==>> OutMsgID: {out_msg_id}")
@@ -119,8 +127,35 @@ def compute_batch_permutations(message):
                 if out_batch in batch_prob:
                     del batch_prob[out_batch]
         print(f"==>> BatchProb: {batch_prob}")
+        # add metrics logging
+        utc_timestamp = calendar.timegm(time.gmtime())
+        sim_timestamp = self.env.now
+        print(f"============ TIME NOW: {sim_timestamp }, UTC (seconds since epoch): {utc_timestamp} ================")
+        if msg_count % window_size == 0:
+            window_index += 1
+            for out_batch in batch_prob:
+                true_in_batch_id = incoming_outgoing_batch_map.get(out_batch, None)
+                self.simulation.Metrics.add_batch_log(
+                    out_batch_id=out_batch,
+                    true_in_batch_id=true_in_batch_id,
+                    anonymity_set_size=anonymity_set_size.get(out_batch, 0),
+                    anonymity_set=anonymity_set.get(out_batch, set()),
+                    batch_prob=batch_prob.get(out_batch, {}),
+                    sim_timestamp= sim_timestamp, 
+                    utc_timestamp=utc_timestamp,
+                    window_index=window_index,
+                    n_clients=self.simulation.n_clients if hasattr(self.simulation, "n_clients") else None,
+                    batch_size=self.simulation.batch_size if hasattr(self.simulation, "batch_size") else None
+                )
+        # periodic save of metrics
+        if sim_timestamp - last_metrics_save_time >= metrics_save_interval:
+            filename_suffix = f"_{int(sim_timestamp)}"
+            self.simulation.Metrics.save(self.simulation.logDir, filename_suffix)
+            last_metrics_save_time = sim_timestamp
         out_batch_mapping_count.clear()
         batch_prob.clear()
+        anonymity_set.clear()
+        anonymity_set_size.clear()
 
 def batchid(msg):
     parts = msg.split('_')

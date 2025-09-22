@@ -48,8 +48,9 @@ class Attacker:
         self.checkEndSim()
 
     def checkEndSim(self):  # check to end simulation logic
-        # batch algorithm 
-        if self.env.now >= (self.simulation.SimDuration + self.simulation.burnout) or (len(outgoing_batches) >= 100):
+        # batch algorithm
+        print(f"checking condition ====> len(OUTGOING_BATCHES): {len(outgoing_batches)}")
+        if self.env.now >= (self.simulation.SimDuration + self.simulation.burnout) or (len(outgoing_batches) > 100):
             if self.simulation.printing:
                 print('Simulation duration limit reached')
             self.simulation.endEvent.succeed()  # end simulation if time has expired
