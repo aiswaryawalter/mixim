@@ -7,6 +7,7 @@ next_outgoing_batch_id = 0
 incoming_batches = {} 
 outgoing_batches = {}  
 incoming_outgoing_batch_map = {} 
+outgoing_to_incoming_batch_map = {}
 valids = []  
 batch_prob = {}
 out_batch_mapping_count = defaultdict(Counter) 
@@ -24,10 +25,11 @@ def compute_batch_permutations(self, message):
         msg_count += 1
         out_batch_id = message.outgoing_batch_id
         out_msg_id = message.outgoing_msg_id
-        incoming_outgoing_batch_map[out_batch_id] = message.incoming_batch_id
+        outgoing_to_incoming_batch_map[out_batch_id] = message.incoming_batch_id
+        true_in_batch_id = outgoing_to_incoming_batch_map.get(out_batch_id, None)
         out_msg_mapping_set[out_msg_id] = set()
         out_msg_time = outgoing_batches[out_batch_id][out_msg_id]
-        print(f"==>> OutMsgID: {out_msg_id}")
+        print(f"==>> OutMsgID: {out_msg_id}\n IncMsgID: {message.incoming_msg_id}")
         print(f"==>> OutMsgTime: {out_msg_time}")
         print(f"==>> Incoming Batches: {incoming_batches}")
 
@@ -63,7 +65,7 @@ def compute_batch_permutations(self, message):
                 for x in valids:
                     new_x = x.copy()
                     count = 0
-                    msg_list = new_x.get(out_batch_id, [])
+                    msg_list = x.get(out_batch_id, [])
                     if msg_list:
                         for v in range(len(msg_list)):
                             # print(f"==>> Valids X[{out_batch_id}]: {msg_list}")
@@ -116,6 +118,8 @@ def compute_batch_permutations(self, message):
             for in_batch, count in out_batch_mapping_count[out_batch].items():
                 # print(f"==>> OutBatch: {out_batch}, InBatch: {in_batch} Count: {count}")
                 prob = count / len(valids) if len(valids) > 0 else 0
+                if out_batch == out_batch_id and in_batch == true_in_batch_id:
+                    print(f"========= Probability of[{out_batch}] of TRUE InBatch [{true_in_batch_id}]: {prob}============")
                 if prob > 0:
                     non_zero[in_batch] = prob
             if non_zero:
@@ -127,6 +131,8 @@ def compute_batch_permutations(self, message):
                 if out_batch in batch_prob:
                     del batch_prob[out_batch]
         print(f"==>> BatchProb: {batch_prob}")
+        if true_in_batch_id not in anonymity_set.get(out_batch_id, set()):
+            print(f"WARNING: True incoming batch {true_in_batch_id} not in anonymity set for outgoing batch {out_batch_id}")
         # add metrics logging
         utc_timestamp = calendar.timegm(time.gmtime())
         sim_timestamp = self.env.now
@@ -134,7 +140,6 @@ def compute_batch_permutations(self, message):
         if msg_count % window_size == 0:
             window_index += 1
             for out_batch in batch_prob:
-                true_in_batch_id = incoming_outgoing_batch_map.get(out_batch, None)
                 self.simulation.Metrics.add_batch_log(
                     out_batch_id=out_batch,
                     true_in_batch_id=true_in_batch_id,
