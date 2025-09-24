@@ -1,6 +1,7 @@
 
 from collections import defaultdict, Counter
 import time, calendar
+import os
 
 next_incoming_batch_id = 0
 next_outgoing_batch_id = 0
@@ -18,7 +19,7 @@ msg_count = 0
 window_size = 2
 window_index = 0
 last_metrics_save_time = 0
-metrics_save_interval = 5 # 20 sim time units; set to 3600 seconds for 1 hour; set to 7200 for 2 hours
+metrics_save_interval = 1 # 20 sim time units; set to 3600 seconds for 1 hour; set to 7200 for 2 hours
 
 def compute_batch_permutations(self, message):
         global valids, msg_count, window_index, last_metrics_save_time
@@ -154,7 +155,8 @@ def compute_batch_permutations(self, message):
                 )
         # periodic save of metrics
         if sim_timestamp - last_metrics_save_time >= metrics_save_interval:
-            filename_suffix = f"_{int(sim_timestamp)}"
+            job_id = os.environ.get("SLURM_JOB_ID", "")
+            filename_suffix = f"_{job_id}_{int(sim_timestamp)}"
             self.simulation.Metrics.save(self.simulation.logDir, filename_suffix)
             last_metrics_save_time = sim_timestamp
         out_batch_mapping_count.clear()
