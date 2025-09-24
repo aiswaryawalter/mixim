@@ -3,8 +3,8 @@
 #SBATCH --output=Logs/mixim-%j.out
 #SBATCH --error=Logs/mixim-%j.err
 #SBATCH --gres=gpu:1
-#SBATCH --time=00:10:00
-#SBATCH --mem=16G
+#SBATCH --time=03:00:00
+#SBATCH --mem=256G
 
 module load python/3.12
 module load nvidia/latest
