@@ -9,6 +9,7 @@ from BatchTracker import (incoming_batches,
                           outgoing_batches, 
                           next_outgoing_batch_id, 
                           incoming_outgoing_batch_map, 
+                          outgoing_to_incoming_batch_map,
                           compute_batch_permutations,
                           )
 
@@ -190,6 +191,10 @@ class Client:
             out_batch_id = next_outgoing_batch_id
             next_outgoing_batch_id += 1
             incoming_outgoing_batch_map[incoming_batch_id] = out_batch_id
+            print(f"==>> Mapping IncBatch {incoming_batch_id} to OutBatch {out_batch_id}")
+            if out_batch_id not in outgoing_to_incoming_batch_map:
+                outgoing_to_incoming_batch_map[out_batch_id] = incoming_batch_id
+                print(f"==>> Mapping OutBatch {out_batch_id} to IncBatch {incoming_batch_id}")
         else:
             out_batch_id = incoming_outgoing_batch_map[incoming_batch_id]
         # print(f"==>> Inc to Out Batch Map: {incoming_outgoing_batch_map}")

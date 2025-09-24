@@ -26,11 +26,12 @@ def compute_batch_permutations(self, message):
         msg_count += 1
         out_batch_id = message.outgoing_batch_id
         out_msg_id = message.outgoing_msg_id
-        outgoing_to_incoming_batch_map[out_batch_id] = message.incoming_batch_id
-        true_in_batch_id = outgoing_to_incoming_batch_map.get(out_batch_id, None)
+        # outgoing_to_incoming_batch_map[out_batch_id] = message.incoming_batch_id
+        true_in_batch_id = message.incoming_batch_id
         out_msg_mapping_set[out_msg_id] = set()
         out_msg_time = outgoing_batches[out_batch_id][out_msg_id]
-        print(f"==>> OutMsgID: {out_msg_id}\n IncMsgID: {message.incoming_msg_id}")
+        print(f"==>> OutMsgID: {out_msg_id} ===> IncMsgID: {message.incoming_msg_id}")
+        print(f"==>> OutBatchID: {out_batch_id} ===> IncBatchID: {true_in_batch_id}")
         print(f"==>> OutMsgTime: {out_msg_time}")
         print(f"==>> Incoming Batches: {incoming_batches}")
 
@@ -38,17 +39,17 @@ def compute_batch_permutations(self, message):
             len_in = len(incoming_batches[in_batch_id])
             len_out = len(outgoing_batches[out_batch_id])
             if len_in >= len_out:
-                print(f"==>> OutBatchMappingCount[{out_batch_id}]: {in_batch_id} Added ")
+                # print(f"==>> OutBatchMappingCount[{out_batch_id}]: {in_batch_id} Added ")
                 out_batch_mapping_count[out_batch_id][in_batch_id] = 0
 
         for in_batch_id in out_batch_mapping_count[out_batch_id]:
             for inc_msg_id, time_left in incoming_batches[in_batch_id].items():
-                print(f"==>> Time Left[{inc_msg_id}]: {time_left}")
+                # print(f"==>> Time Left[{inc_msg_id}]: {time_left}")
                 if time_left < out_msg_time:
-                    print(f"==>> OutMsgMappingSet[{out_msg_id}]: {inc_msg_id} Added ")
+                    # print(f"==>> OutMsgMappingSet[{out_msg_id}]: {inc_msg_id} Added ")
                     out_msg_mapping_set[out_msg_id].add(inc_msg_id)
 
-        print(f"==>> OutMsgMappingSet[{out_msg_id}]: {out_msg_mapping_set[out_msg_id]}")
+        # print(f"==>> OutMsgMappingSet[{out_msg_id}]: {out_msg_mapping_set[out_msg_id]}")
         if not valids:
             for inc_msg in out_msg_mapping_set[out_msg_id]:
                 valids.append({out_batch_id: [inc_msg]})
@@ -143,7 +144,7 @@ def compute_batch_permutations(self, message):
             for out_batch in batch_prob:
                 self.simulation.Metrics.add_batch_log(
                     out_batch_id=out_batch,
-                    true_in_batch_id=true_in_batch_id,
+                    true_in_batch_id= outgoing_to_incoming_batch_map.get(out_batch, None),
                     anonymity_set_size=anonymity_set_size.get(out_batch, 0),
                     anonymity_set=anonymity_set.get(out_batch, set()),
                     batch_prob=batch_prob.get(out_batch, {}),
