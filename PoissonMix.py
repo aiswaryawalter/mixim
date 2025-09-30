@@ -32,7 +32,7 @@ class PoissonMix(Mix):
             print(f"var1 -> {var1}  self.pool -> {len(self.pool)}  average -> {average}")
             if self.simulation.topology == 'stratified':
                 if var1 and self.layer == 1:
-                    self.env.process(self.simulation.set_stable_mix(self.id - 1))
+                    self.env.process(self.simulation.set_stable_mix(msg.next_hop_index - 1))
                 #if all(self.simulation.stableMixL1):
                     #for i in range(len(self.simulation.stableMixL1)):
                         #self.simulation.setStableMix(i)
@@ -87,13 +87,11 @@ class PoissonMix(Mix):
         hop_index = msg.next_hop_index - 1  # because next_hop_index starts at 1 after leaving client
         if hop_index < 0:
             hop_index = 0  # safety for first hop
-        delay_for_this_hop = msg.delays[hop_index + 1] 
-        send_time = self.env.now
-        print(f"[LatencyMatrix] Delay of Msg {msg.id} (hop {hop_index}) => {delay_for_this_hop}")
+        delay_for_this_hop = msg.delays[hop_index+1] 
+        
+    
         yield self.env.timeout(delay_for_this_hop)
-        recv_time = self.env.now
-        observed_latency = recv_time - send_time
-        print(f"[LatencyMatrix] Observed Delay of Msg {msg.id} (hop {hop_index}) => {observed_latency}")
+        print(f"Processing Delay of Msg {msg.id} (hop {hop_index}) => {delay_for_this_hop}")
         self.update_probabilities(msg, len(self.pool))
         next_hop = msg.route[msg.next_hop_index]
         self.pool.remove(msg)

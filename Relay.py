@@ -41,8 +41,24 @@ class Attacker:
                 self.var = False
                 yield self.env.timeout(2) # default_value = 2
                 self.var = True
-                
-        yield self.env.timeout(0.05)  # 'link' delay
+
+        # Apply link delay based on current hop
+        current_hop_index = msg.next_hop_index - 1  # Convert to 0-based index
+        if hasattr(msg, 'link_delays') and len(msg.link_delays) > current_hop_index >= 0:
+            # Use link delay from message
+            link_delay = msg.link_delays[current_hop_index]
+            relay_start = self.env.now
+            yield self.env.timeout(link_delay)
+            relay_end = self.env.now
+            observed_latency = relay_end - relay_start
+            print(f"==>>[Latency] {msg.id} Observed Link Delay (hop {current_hop_index}) => {observed_latency}")
+            print(f"==>>[Latency] {msg.id} Link Delay (hop {current_hop_index}): {link_delay}")
+        else:
+            # Fallback to default link delay
+            yield self.env.timeout(0.05)
+            print(f"==>>[Latency] {msg.id} Default Link Delay (hop {current_hop_index}): 0.05")
+
+        # yield self.env.timeout(0.05)  # 'link' delay
         receiver.receive_message(msg)
         self.checkEndSim()
 

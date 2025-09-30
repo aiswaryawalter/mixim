@@ -7,6 +7,7 @@ import random
 class Client:
     def __init__(self, simulation, id, network_dict, rate_client, mu, probability_dist_mixes, n_targets, n_hops, client_dummies, rate_client_dummies, Log):
         self.id = id
+        self.server_id = None 
         self.env = simulation.env
         self.simulation = simulation  # simulation object
         self.network_dict = network_dict
@@ -44,6 +45,8 @@ class Client:
         route = [self]
         route_ids = [self.id]
         delays = [delay_client]
+        # Link delays (between nodes) - will be filled based on route
+        link_delays = []
         pr_target = [0.0 for _ in range(self.n_targets)]
         if (self.simulation.topology == 'free route' and 
             self.simulation.routing == 'source'):
@@ -119,25 +122,38 @@ class Client:
                 current_layer = (current_layer % self.simulation.n_layers) + 1
         elif (
             self.simulation.routing == 'larmix'
-            and self.simulation.topology in ['stratified']):            
-            best_route = self.simulation.network.sample_latency_aware_path(self.simulation.tau)
-            route = [self] + best_route
+            and self.simulation.topology in ['stratified']):  
+            all_server_ids = list(self.simulation.node_coords.keys())
+            sender_server_id = np.random.choice(all_server_ids) 
+            self.server_id = sender_server_id 
+            receiver_server_candidates = [sid for sid in all_server_ids if sid != sender_server_id]
+            receiver_server_id = np.random.choice(receiver_server_candidates)
+            receiver = sample(list(self.other_clients), k=1)[0]
+            receiver.server_id = receiver_server_id
+
+            print(f"[LARMix] Sender Client: {self.id} -> Server: {sender_server_id}")
+            print(f"[LARMix] Receiver Client: {receiver.id} -> Server: {receiver_server_id}")
+
+            best_route = self.simulation.network.sample_latency_aware_path(self.simulation.tau, sender_server_id, receiver_server_id)
+            route = [self] + best_route + [receiver]
             route_ids = [node.id for node in route]
-            # delays = [exponential(self.mu) for _ in range(len(route) - 1)]  
              
-            # Build delays using real latency map
-            delays = [delay_client]  # client → first mix
-            for i in range(1, len(route)):
-                prev = route[i - 1]
-                curr = route[i]
-                if hasattr(prev, "server_id") and hasattr(curr, "server_id"):
-                    latency = self.simulation.network.latency_matrix.get(
-                        (prev.server_id, curr.server_id),
-                        exponential(self.mu)  # fallback
-                    )
-                else:
-                    latency = exponential(self.mu)
-                delays.append(latency)
+            # Processing delays at each mix
+            for _ in range(len(best_route)):
+                delays.append(exponential(self.mu))
+            
+            print(f"[LARMix] Complete Route: {[getattr(node, 'server_id', node.id) for node in route]}")
+            # for i in range(1, len(route)):
+            #     prev = route[i - 1]
+            #     curr = route[i]
+            #     if hasattr(prev, "server_id") and hasattr(curr, "server_id"):
+            #         latency = self.simulation.network.latency_matrix.get(
+            #             (prev.server_id, curr.server_id),
+            #             exponential(self.mu)  # fallback
+            #         )
+            #     else:
+            #         latency = exponential(self.mu)
+            #     delays.append(latency)
             # print(f"[LARMix Delays]==> {delays}") 
             # print(f"[LARMix Best Route]==> {best_route}") 
         else:
@@ -178,14 +194,38 @@ class Client:
                         route.append(node)
                         route_ids.append((node.id))
         delays += [0]
-        receiver = sample(list(self.other_clients), k=1)[0]
-        print(f"[Route Delays]: {delays}")
-        print(f"==>> Receiver chosen: {receiver} at time {self.env.now}")
-        route += [receiver]
-        route_ids += [receiver.id]
-        print(f"[Debug] ==>> Route: {route}") 
+        if self.simulation.routing != 'larmix':
+            receiver = sample(list(self.other_clients), k=1)[0]
+            print(f"[Route Delays]: {delays}")
+            print(f"==>> Receiver chosen: {receiver} at time {self.env.now}")
+            route += [receiver]
+            route_ids += [receiver.id]
+            print(f"[Route]: {route}") 
 
-        message = Message(self.message_id, message_type, self, route, delays, pr_target,False)
+        # Build link delays based on route
+        if self.simulation.routing == 'larmix':
+            for i in range(len(route) - 1):
+                prev_node = route[i]
+                next_node = route[i + 1]
+            
+                prev_server_id = getattr(prev_node, 'server_id', None)
+                next_server_id = getattr(next_node, 'server_id', None)
+                
+                if prev_server_id and next_server_id:
+                    # Use latency matrix for LARMix
+                    link_delay = self.simulation.network.latency_matrix.get(
+                        (prev_server_id, next_server_id), 0.05
+                    )
+                else:
+                    # Default link delay
+                    link_delay = 0.05
+                
+                link_delays.append(link_delay)
+                print(f"[Link Delay] {prev_server_id} -> {next_server_id}: {link_delay}")
+            
+            print(f"[Link Delays]: {link_delays}")
+        
+        message = Message(self.message_id, message_type, self, route, delays, link_delays, pr_target,False)
         if self.message_id == 1 and self.id ==1:
             for i in range(len(self.probability_dist_mixes)):
                 if self.simulation.printing:
@@ -210,11 +250,12 @@ class Client:
         while True:
             message, delay = self.create_message(message_type, rate_client)
             yield self.env.timeout(delay)
-            print(f"==>> Delay: {delay}")
+            print(f"==>> Processing Delay: {delay}")
             message.time_left = self.env.now
             self.log.sent_messages_f(message)
+
             self.env.process(self.simulation.attacker.relay(message, message.route[1]))
-            print(f"==>> message.route[1]: {message.route}")
+            print(f"==>> Relaying to the next mix node: {message.route}")
 
     def receive_ack(self, message):  # Message received
         pass

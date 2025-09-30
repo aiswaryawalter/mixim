@@ -365,19 +365,31 @@ class Network:
 
         return layers
 
-    def sample_latency_aware_path(self, tau):
+    def sample_latency_aware_path(self, tau, sender_server_id, receiver_server_id):
         """
         Latency-aware path selection for stratified topology.
         One node per layer chosen based on latency and tau parameter.
         """
         path = []
 
-        # --- Pick first layer node randomly ---
-        current_node = np.random.choice(self.network_dict[1])
+        # Find entry mix with lowest latency from sender
+        entry_candidates = self.network_dict[1]
+        entry_latencies = [
+            self.latency_matrix.get((sender_server_id, node.server_id), 50.0)
+            for node in entry_candidates
+        ]
+        
+        # Layer 1 Weight by inverse latency (lower latency = higher weight)
+        entry_weights = 1 / (np.array(entry_latencies) + 1e-6)
+        entry_weights = entry_weights / np.sum(entry_weights)
+        current_node = np.random.choice(entry_candidates, p=entry_weights)
         path.append(current_node)
+        
+        print(f"[LARMix] Layer 1 nodeID: {current_node.id} (serverID: {current_node.server_id})")
+        print(f"[LARMix] Layer 1 latencies from Server {sender_server_id} : {list(zip([n.server_id for n in entry_candidates], entry_latencies))}")
 
         # --- Pick one node from each remaining layer ---
-        for layer_idx in range(2, self.num_layers + 1):
+        for layer_idx in range(2, self.num_layers):
             next_layer_nodes = self.network_dict[layer_idx]
 
             # Get latencies
@@ -385,10 +397,12 @@ class Network:
                 self.latency_matrix.get((current_node.server_id, node.server_id), 50.0)
                 for node in next_layer_nodes
             ]
-            # print(f"[DEBUG] Latencies from node {current_node.server_id}: {latencies}")
+            print(f"[LARMix] Latencies from ServerID {current_node.server_id}: {latencies}")
+
             # Rank nodes based on latency
             sorted_indices = np.argsort(latencies)
             rank_map = {next_layer_nodes[idx]: rank for rank, idx in enumerate(sorted_indices)}
+
             # print(f"[DEBUG] Sorted_indices of Layer {layer_idx}: {sorted_indices}")
             # print(f"[DEBUG] Rank map of Layer {layer_idx}: {rank_map}")
             
@@ -398,7 +412,7 @@ class Network:
                 rank = rank_map[node]
                 lij = self.latency_matrix.get((current_node.server_id, node.server_id), 50.0)
                 weight = ((1 / np.e) ** (rank * (1 - tau))) * ((1 / lij) ** (1 - tau))
-                # print(f"[DEBUG] Mixnode {node.id} -> from Server ID {current_node.server_id} to {node.server_id} Latency : {lij}, Weight: {weight}")
+                print(f"[DEBUG] Mixnode {node.id} -> from Server ID {current_node.server_id} to {node.server_id} Latency : {lij}, Weight: {weight}")
                 weights.append(weight)
 
             weights = np.array(weights) / np.sum(weights)
@@ -406,8 +420,39 @@ class Network:
             next_node = np.random.choice(next_layer_nodes, p=weights)
 
             path.append(next_node)
-            # print(f"[DEBUG] Selected node from Layer {layer_idx}-> Server ID: {next_node.server_id}, Mix ID: {next_node.id}")
             current_node = next_node
-        print(f"[DEBUG] Latency Aware Path: {path}")
+            print(f"[LARMix] Layer {layer_idx} nodeID: {next_node.id} (serverID: {next_node.server_id})")
+        
+        # Select exit mix considering both current node latency AND receiver location
+        if self.num_layers > 1:
+            exit_candidates = self.network_dict[self.num_layers]
+            exit_latencies = []
+            
+            for node in exit_candidates:
+                # Combined latency: current -> exit + exit -> receiver
+                current_to_exit = self.latency_matrix.get((current_node.server_id, node.server_id), 50.0)
+                exit_to_receiver = self.latency_matrix.get((node.server_id, receiver_server_id), 50.0)
+                total_latency = current_to_exit + exit_to_receiver
+                exit_latencies.append(total_latency)
+            
+            # Apply tau-based weighting for exit selection
+            sorted_indices = np.argsort(exit_latencies)
+            rank_map = {exit_candidates[idx]: rank for rank, idx in enumerate(sorted_indices)}
+            
+            exit_weights = []
+            for node in exit_candidates:
+                rank = rank_map[node]
+                total_latency = exit_latencies[exit_candidates.index(node)]
+                weight = ((1 / np.e) ** (rank * (1 - tau))) * ((1 / total_latency) ** (1 - tau))
+                exit_weights.append(weight)
+            
+            exit_weights = np.array(exit_weights) / np.sum(exit_weights)
+            exit_node = np.random.choice(exit_candidates, p=exit_weights)
+            path.append(exit_node)
+            
+            print(f"[LARMix] Exit node: {exit_node.id} (server: {exit_node.server_id})")
+            print(f"[LARMix] Exit total latencies: {list(zip([n.server_id for n in exit_candidates], exit_latencies))}")
+
+        print(f"[LARMix] Latency Aware Path: {path}")
 
         return path
