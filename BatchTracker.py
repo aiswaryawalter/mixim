@@ -37,6 +37,7 @@ def compute_batch_permutations(self, message):
         out_msg_id = message.outgoing_msg_id
         # outgoing_to_incoming_batch_map[out_batch_id] = message.incoming_batch_id
         true_in_batch_id = message.incoming_batch_id
+        true_in_msg_id = message.incoming_msg_id
         out_msg_mapping_set[out_msg_id] = set()
         out_msg_time = outgoing_batches[out_batch_id][out_msg_id]
         logger.info(f"==>> OutMsgID: {out_msg_id} ===> IncMsgID: {message.incoming_msg_id}")
@@ -172,20 +173,20 @@ def compute_batch_permutations(self, message):
         
         # end of metrics logging
         # Batch analysis
-        logger.info(f"======>[{out_msg_id}-{true_in_batch_id}]BATCH_ANALYSIS - TotalIncomingBatches: {len(incoming_batches)}")
-        logger.info(f"======>[{out_msg_id}-{true_in_batch_id}]BATCH_ANALYSIS - TotalOutgoingBatches: {len(outgoing_batches)}")
-        logger.info(f"======>[{out_msg_id}-{true_in_batch_id}]BATCH_ANALYSIS - OutBatchSize: {len(outgoing_batches.get(out_batch_id, {}))}")
-        logger.info(f"======>[{out_msg_id}-{true_in_batch_id}]BATCH_ANALYSIS - CandidateInBatches: {len(out_batch_mapping_count[out_batch_id])}")
+        logger.info(f"[{out_msg_id}-{true_in_msg_id}]BATCH_ANALYSIS - TotalIncomingBatches: {len(incoming_batches)}")
+        logger.info(f"[{out_msg_id}-{true_in_msg_id}]BATCH_ANALYSIS - TotalOutgoingBatches: {len(outgoing_batches)}")
+        logger.info(f"[{out_msg_id}-{true_in_msg_id}]BATCH_ANALYSIS - OutBatchSize: {len(outgoing_batches.get(out_batch_id, {}))}")
+        logger.info(f"[{out_msg_id}-{true_in_msg_id}]BATCH_ANALYSIS - CandidateInBatches: {len(out_batch_mapping_count[out_batch_id])}")
         batchtracking_duration = time.time() - batchtracking_start_time
-        logger.info(f"======>[{out_msg_id}-{true_in_batch_id}]BATCH_ANALYSIS - ProcessingTime: {batchtracking_duration:.4f}s")
-        logger.info(f"======>[{out_msg_id}-{true_in_batch_id}]BATCH_ANALYSIS - ValidPermutationsGenerated: {len(valids)}")
+        logger.info(f"[{out_msg_id}-{true_in_msg_id}]BATCH_ANALYSIS - ProcessingTime: {batchtracking_duration:.4f}s")
+        logger.info(f"[{out_msg_id}-{true_in_msg_id}]BATCH_ANALYSIS - ValidPermutationsGenerated: {len(valids)}")
         process = psutil.Process(os.getpid())
         memory_info = process.memory_info()
-        logger.info(f"======>[{out_msg_id}-{true_in_batch_id}]MEMORY - RSS: {memory_info.rss / 1024 / 1024:.2f} MB")
-        logger.info(f"======>[{out_msg_id}-{true_in_batch_id}]MEMORY - VMS: {memory_info.vms / 1024 / 1024:.2f} MB")
-        logger.info(f"======>[{out_msg_id}-{true_in_batch_id}]MEMORY - ValidsSizeEstimate: {sys.getsizeof(valids) / 1024:.2f} KB")
-        logger.info(f"======>[{out_msg_id}-{true_in_batch_id}]MEMORY - BatchProbSizeEstimate: {sys.getsizeof(batch_prob) / 1024:.2f} KB")
-        
+        logger.info(f"[{out_msg_id}-{true_in_msg_id}]MEMORY - RSS: {memory_info.rss / 1024 / 1024:.2f} MB")
+        logger.info(f"[{out_msg_id}-{true_in_msg_id}]MEMORY - VMS: {memory_info.vms / 1024 / 1024:.2f} MB")
+        logger.info(f"[{out_msg_id}-{true_in_msg_id}]MEMORY - ValidsSizeEstimate: {sys.getsizeof(valids) / 1024:.2f} KB")
+        logger.info(f"[{out_msg_id}-{true_in_msg_id}]MEMORY - BatchProbSizeEstimate: {sys.getsizeof(batch_prob) / 1024:.2f} KB")
+
         # Clear data structures for next message
         out_batch_mapping_count.clear()
         batch_prob.clear()
