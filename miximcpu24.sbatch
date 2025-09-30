@@ -9,6 +9,9 @@
 module load python/3.12
 mkdir -p Logs
 
+python3.12 -m venv venv_mixim
+source venv_mixim/bin/activate
+
 # Add system monitoring
 echo "=== SYSTEM INFO ===" 
 echo "Job ID: $SLURM_JOB_ID"
@@ -17,12 +20,16 @@ echo "CPUs allocated: $SLURM_CPUS_PER_TASK"
 echo "Memory allocated: $SLURM_MEM_PER_NODE MB"
 echo "Start time: $(date)"
 echo "Available memory: $(free -h)"
+echo "Python version: $(python3.12 --version)"
+echo "Python path: $(which python3.12)"
 
 which python
 python --version
 
-python3.12 -m pip install --user -r requirements.txt
-export PYTHONPATH=$HOME/.local/lib/python3.12/site-packages:$PYTHONPATH
+
+pip install --upgrade pip
+pip install -r requirements.txt
+# export PYTHONPATH=$HOME/.local/lib/python3.12/site-packages:$PYTHONPATH
 
 echo "Starting job at $(date)"
 echo "Available memory: $(free -h)"
