@@ -93,7 +93,8 @@ if __name__ == "__main__":
         table_mean_entropy.append(float(item[1]))
         table_median_entropy.append(float(item[2]))
         table_q25_entropy.append(float(item[3]))
-    print("Entropy", table_entropy)
-    print("Mean Entropy", table_mean_entropy)
+    
+    print("\nMean Entropy", table_mean_entropy)
     print("Median Entropy", table_median_entropy)
     print("Quantile Entropy 0.25", table_q25_entropy)
+    print("Entropy", table_entropy)

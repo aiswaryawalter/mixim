@@ -112,6 +112,7 @@ class PoissonMix(Mix):
         
         yield self.env.timeout(delay_for_this_hop)
         print(f"[{msg.id}] [Hop {hop_index}] [Mix {self.id}] Processing Delay Completed => {delay_for_this_hop}")
+        self.messages_processed += 1
         self.update_probabilities(msg, len(self.pool))
         next_hop = msg.route[msg.next_hop_index]
         self.pool.remove(msg)

@@ -38,6 +38,13 @@ class Log:
             "DummyLinkLatency": [],  # NEW: Sum of link delays
             "DummyTotalLatency": []  # NEW: Total latency (processing + link)
         }
+        self.mix_loads = {
+            "MixID": [],
+            "MixLayer": [],
+            "MessagesProcessed": [],
+            "LoadPercentage": [],  # messages processed by this mix / total messages in layer
+            "LayerTotalMessages": [],
+        }
     def dummies_dropped_end_link(self, dummy, dropping_node):
         processing_latency = dummy.get_processing_latency()
         link_latency = dummy.get_link_latency()
@@ -87,4 +94,12 @@ class Log:
         self.received_messages["MessageProcessingLatency"].append(processing_latency)
         self.received_messages["MessageLinkLatency"].append(link_latency)
         self.received_messages["MessageTotalLatency"].append(total_latency)
+    
+    def log_mix_load(self, mix_id, layer, messages_processed, layer_total, load_percentage, is_corrupt):
+        """Log load information for a mix node"""
+        self.mix_loads["MixID"].append(mix_id)
+        self.mix_loads["MixLayer"].append(layer)
+        self.mix_loads["MessagesProcessed"].append(messages_processed)
+        self.mix_loads["LayerTotalMessages"].append(layer_total)
+        self.mix_loads["LoadPercentage"].append(load_percentage)
     

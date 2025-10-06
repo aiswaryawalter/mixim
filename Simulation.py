@@ -214,6 +214,46 @@ class Simulation(object):
                 self.clientsSet.add(client)
             for client in self.clientsSet:
                 client.other_clients = self.clientsSet - {client}
+    
+    def calculate_mix_loads(self):
+        """Calculate load for each mix node"""
+        print("\n----------Mix Load Analysis----------")
+        
+        # Dictionary to store layer totals
+        layer_totals = {}
+        
+        # First pass: calculate total messages per layer
+        for layer_num in range(1, self.n_layers + 1):
+            layer_total = 0
+            for mix in self.network.network_dict[layer_num]:
+                layer_total += mix.messages_processed
+            layer_totals[layer_num] = layer_total
+            print(f"Layer {layer_num} total messages processed: {layer_total}")
+        
+        # Second pass: calculate load percentages and log
+        for layer_num in range(1, self.n_layers + 1):
+            layer_total = layer_totals[layer_num]
+            print(f"\nLayer {layer_num} Mix Loads:")
+            
+            for mix in self.network.network_dict[layer_num]:
+                if layer_total > 0:
+                    load_percentage = (mix.messages_processed / layer_total) * 100
+                else:
+                    load_percentage = 0.0
+                
+                print(f"  Mix {mix.id}: {mix.messages_processed} msgs ({load_percentage:.2f}%)")
+                
+                # Log the mix load data
+                self.Log.log_mix_load(
+                    mix.id,
+                    layer_num,
+                    mix.messages_processed,
+                    layer_total,
+                    load_percentage,
+                    mix.corrupt
+                )
+        
+        return layer_totals
 
     def periodic_log_saver(self):
         """Periodically save logs during simulation"""
@@ -308,24 +348,29 @@ class Simulation(object):
             print(f"\n[ERROR] Simulation failed: {e}. Saving current logs...")
             self.save_current_logs()
             raise
-        finally:
-            # Always save logs at the end, regardless of how simulation ended
-            print("Saving final logs...")
-            self.save_current_logs()
+        # finally:
+        #     # Always save logs at the end, regardless of how simulation ended
+        #     print("Saving final logs...")
+        #     self.save_current_logs()
 
         if self.printing:
             print('----------Simulation Ended---------')
             print('\n')
 
+        layer_totals = self.calculate_mix_loads()
+
         # Data from Clients(senders and receivers)
         df_sent_messages = pd.DataFrame(self.Log.sent_messages)
         df_received_messages = pd.DataFrame(self.Log.received_messages)
         df_dummies_messages = pd.DataFrame(self.Log.dummy_messages)
+        df_mix_loads = pd.DataFrame(self.Log.mix_loads)
+
 
         if self.logging:
             df_sent_messages.to_csv(f'{logDir}SentMessages.csv')
             df_received_messages.to_csv(f'{logDir}ReceivedMessages.csv')
             df_dummies_messages.to_csv(f'{logDir}DummyMessages.csv')
+            df_mix_loads.to_csv(f'{logDir}MixLoads.csv', index=False) 
         else:
             pass
 
@@ -406,12 +451,12 @@ class Simulation(object):
             # Enhanced latency statistics
             print('\n----------Latency Statistics----------')
             print(f"Average time-based delay per message: {average_delay:.6f}")
-            print(f"Average processing latency: {avg_processing_latency:.6f}")
-            print(f"Average link latency: {avg_link_latency:.6f}")
-            print(f"Average total latency: {avg_total_latency:.6f}")
-            
-            print(f"\nProcessing Latency - Min: {min_processing_latency:.6f}, Max: {max_processing_latency:.6f}")
+            print(f"\nAverage link latency: {avg_link_latency:.6f}")
             print(f"Link Latency - Min: {min_link_latency:.6f}, Max: {max_link_latency:.6f}")
+            print(f"\nAverage processing latency: {avg_processing_latency:.6f}")
+            print(f"Processing Latency - Min: {min_processing_latency:.6f}, Max: {max_processing_latency:.6f}")
+            
+            print(f"\nAverage total latency: {avg_total_latency:.6f}")
             print(f"Total Latency - Min: {min_total_latency:.6f}, Max: {max_total_latency:.6f}")
             
             # Calculate latency breakdown percentages
@@ -419,8 +464,39 @@ class Simulation(object):
                 processing_percentage = (avg_processing_latency / avg_total_latency) * 100
                 link_percentage = (avg_link_latency / avg_total_latency) * 100
                 print(f"\nLatency Breakdown:")
-                print(f"Processing latency: {processing_percentage:.1f}% of total")
                 print(f"Link latency: {link_percentage:.1f}% of total")
+                print(f"Processing latency: {processing_percentage:.1f}% of total")
+                
+            
+            print('-------------------------------------')
+
+            print('\n----------Load Balancing Statistics----------')
+        
+            # Calculate load balancing metrics
+            for layer_num in range(1, self.n_layers + 1):
+                layer_mixes = self.network.network_dict[layer_num]
+                load_percentages = []
+                
+                for mix in layer_mixes:
+                    if layer_totals[layer_num] > 0:
+                        load_pct = (mix.messages_processed / layer_totals[layer_num]) * 100
+                        load_percentages.append(load_pct)
+                
+                if load_percentages:
+                    avg_load = np.mean(load_percentages)
+                    std_load = np.std(load_percentages)
+                    max_load = max(load_percentages)
+                    min_load = min(load_percentages)
+                    
+                    print(f"Layer {layer_num}:")
+                    print(f"  Average load: {avg_load:.2f}%")
+                    print(f"  Load std deviation: {std_load:.2f}%")
+                    print(f"  Load range: {min_load:.2f}% - {max_load:.2f}%")
+                    
+                    # Load balance quality (lower std = better balance)
+                    if avg_load > 0:
+                        balance_quality = 100 - (std_load / avg_load * 100)
+                        print(f"  Load balance quality: {balance_quality:.1f}% (100% = perfect)")
             
             print('-------------------------------------')
 
