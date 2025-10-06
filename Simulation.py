@@ -95,6 +95,8 @@ class Simulation(object):
         self.startAttack = False  # if the attacker is allowed to choose a target message
         self.NumberMsgsDropped = 0
         self.numberrounds = []
+        # Start periodic log saving process
+        # self.env.process(self.periodic_log_saver())
 
     def set_stable_mix(self, index):
         print(f"[{self.env.now}] Entered set_stable_mix for index={index}")
@@ -105,9 +107,13 @@ class Simulation(object):
             yield self.env.timeout(self.flush_timeout + 5)
             self.startAttack = True
         self.stableMixL1[index] = True
+        print(f"[{self.env.now}] stableMixL1[{index}] = {self.stableMixL1[index]}")
         if all(self.stableMixL1):
             yield self.env.timeout(2)
             self.startAttack = True
+        # if self.routing == 'larmix':
+        #     yield self.env.timeout(2)
+        #     self.startAttack = True
         print(f"[{self.env.now}] set_stable_mix done => startAttack={self.startAttack}")
 
 
@@ -209,7 +215,52 @@ class Simulation(object):
             for client in self.clientsSet:
                 client.other_clients = self.clientsSet - {client}
 
+    def periodic_log_saver(self):
+        """Periodically save logs during simulation"""
+        while True:
+            try:
+                yield self.env.timeout(100)  # Save every 100 time units
+                current_time = self.env.now
+                
+                # Only save if there's new data
+                if (len(self.Log.sent_messages["MessageID"]) > 0 or 
+                    len(self.Log.received_messages["MessageID"]) > 0):
+                    
+                    print(f"[{current_time}] Periodic log save...")
+                    self.save_current_logs()
+                    
+            except Exception as e:
+                print(f"[ERROR] Periodic logging failed: {e}")
+                break
 
+    def save_current_logs(self):
+        """Save current state of logs"""
+        try:
+            df_sent_messages = pd.DataFrame(self.Log.sent_messages)
+            df_received_messages = pd.DataFrame(self.Log.received_messages)
+            df_dummies_messages = pd.DataFrame(self.Log.dummy_messages)
+            
+            timestamp = int(self.env.now)
+            
+            print(f"[LOG DEBUG] Current simulation time: {timestamp}")
+            print(f"[LOG DEBUG] Sent messages count: {len(df_sent_messages)}")
+            print(f"[LOG DEBUG] Received messages count: {len(df_received_messages)}")
+            print(f"[LOG DEBUG] Dummy messages count: {len(df_dummies_messages)}")
+            
+            # Save even if empty (with headers)
+            df_sent_messages.to_csv(f'{logDir}SentMessages_t{timestamp}.csv', index=False)
+            print(f"[LOG DEBUG] Saved sent messages to SentMessages_t{timestamp}.csv")
+            
+            df_received_messages.to_csv(f'{logDir}ReceivedMessages_t{timestamp}.csv', index=False)
+            print(f"[LOG DEBUG] Saved received messages to ReceivedMessages_t{timestamp}.csv")
+            
+            df_dummies_messages.to_csv(f'{logDir}DummyMessages_t{timestamp}.csv', index=False)
+            print(f"[LOG DEBUG] Saved dummy messages to DummyMessages_t{timestamp}.csv")
+            
+        except Exception as e:
+            print(f"[LOG ERROR] Failed to save logs: {e}")
+            import traceback
+            traceback.print_exc()
 
     def run(self, time=None):
         if self.printing:
@@ -243,10 +294,24 @@ class Simulation(object):
             print('----------Starting Simulation----------')
         if self.printing:
             print('Topology: {}'.format(self.topology))
-        if time is None:
-            self.env.run(until=self.endEvent)
-        else:
-            self.env.run(until=time)
+        try:
+            if time is None:
+                self.env.run(until=self.endEvent)
+            else:
+                self.env.run(until=time)
+        except KeyboardInterrupt:
+            print(f"\n[INTERRUPTED][{self.env.now}] Simulation stopped by user. Saving current logs...")
+            self.save_current_logs()
+            print("Logs saved before exit.")
+            return
+        except Exception as e:
+            print(f"\n[ERROR] Simulation failed: {e}. Saving current logs...")
+            self.save_current_logs()
+            raise
+        finally:
+            # Always save logs at the end, regardless of how simulation ended
+            print("Saving final logs...")
+            self.save_current_logs()
 
         if self.printing:
             print('----------Simulation Ended---------')
@@ -290,6 +355,35 @@ class Simulation(object):
                           self.Log.received_messages["MessageTimeLeft"]):
             sum_delays += (re - le)
         average_delay = sum_delays / len(self.Log.received_messages["MessageTimeReceived"])
+
+        # New latency calculations using the latency methods
+        total_processing_latencies = []
+        total_link_latencies = []
+        total_latencies = []
+        
+        # Calculate latencies for each received message
+        for processing_lat, link_lat, total_lat in zip(
+            self.Log.received_messages["MessageProcessingLatency"],
+            self.Log.received_messages["MessageLinkLatency"], 
+            self.Log.received_messages["MessageTotalLatency"]):
+            
+            total_processing_latencies.append(processing_lat)
+            total_link_latencies.append(link_lat)
+            total_latencies.append(total_lat)
+        
+        # Calculate averages
+        avg_processing_latency = sum(total_processing_latencies) / len(total_processing_latencies)
+        avg_link_latency = sum(total_link_latencies) / len(total_link_latencies)
+        avg_total_latency = sum(total_latencies) / len(total_latencies)
+        
+        # Calculate additional statistics
+        max_processing_latency = max(total_processing_latencies)
+        min_processing_latency = min(total_processing_latencies)
+        max_link_latency = max(total_link_latencies)
+        min_link_latency = min(total_link_latencies)
+        max_total_latency = max(total_latencies)
+        min_total_latency = min(total_latencies)
+        
         if self.printing:
             print('----------Simulation Stats----------')
             print('\n')
@@ -297,6 +391,7 @@ class Simulation(object):
             print('Topology: {}'.format(self.topology))
             print('Routing strategy: {}'.format(self.routing))
             print('Mix type: {}'.format(self.mix_type))
+            print('Mu: {}'.format(self.mu))
             print('Layers: {}, \n amount of mixes per layer: {}, \n Number of hops: {}'.format(self.n_layers, self.n_mixes_per_layer, self.n_hops))
             print(
                 'Amount of clients: {}, \n average delay between 2 messages: {}'.format(self.n_clients, self.rate_client))
@@ -305,7 +400,28 @@ class Simulation(object):
             print('Number of Real messages generated', len(self.Log.sent_messages["MessageID"]))
             print('Number of Real messages Received', len(self.Log.received_messages["MessageID"]))
             print('Number of Dummy messages dropped', len(self.Log.dummy_messages["DummyID"]))
-            print("Average delay per message", average_delay)
+            # print("Average delay per message", average_delay)
+            # print('-------------------------------------')
+
+            # Enhanced latency statistics
+            print('\n----------Latency Statistics----------')
+            print(f"Average time-based delay per message: {average_delay:.6f}")
+            print(f"Average processing latency: {avg_processing_latency:.6f}")
+            print(f"Average link latency: {avg_link_latency:.6f}")
+            print(f"Average total latency: {avg_total_latency:.6f}")
+            
+            print(f"\nProcessing Latency - Min: {min_processing_latency:.6f}, Max: {max_processing_latency:.6f}")
+            print(f"Link Latency - Min: {min_link_latency:.6f}, Max: {max_link_latency:.6f}")
+            print(f"Total Latency - Min: {min_total_latency:.6f}, Max: {max_total_latency:.6f}")
+            
+            # Calculate latency breakdown percentages
+            if avg_total_latency > 0:
+                processing_percentage = (avg_processing_latency / avg_total_latency) * 100
+                link_percentage = (avg_link_latency / avg_total_latency) * 100
+                print(f"\nLatency Breakdown:")
+                print(f"Processing latency: {processing_percentage:.1f}% of total")
+                print(f"Link latency: {link_percentage:.1f}% of total")
+            
             print('-------------------------------------')
 
         return entropy, entropy_mean, entropy_median, entropy_q25

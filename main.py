@@ -75,7 +75,13 @@ def main(rate):
 if __name__ == "__main__":
     p = Pool(processes=1, maxtasksperchild=1)
     param = [3]
-    result = p.map(main,param, chunksize=1)
+    try:
+        result = p.map(main,param, chunksize=1)
+    except KeyboardInterrupt:
+        print("\n[MAIN] Simulation interrupted by user")
+        p.terminate()  # Terminate the pool
+        p.join()       # Wait for cleanup
+        exit(0)
     table_entropy = []
     table_mean_entropy = []
     table_median_entropy = []

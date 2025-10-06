@@ -21,6 +21,19 @@ class PoissonMix(Mix):
         self.pool_dummies = []
         if (self.link_based_dummies or self.multiple_hop_dummies) and (not self.corrupt) and self.layer != self.simulation.n_layers:
             self.env.process(self.send_dummies())
+        # Add layer position mapping
+        # self.layer_position = self.get_layer_position()
+    
+    #for larmix stratified topology
+    def get_layer_position(self):
+        """Get the position index of this mix within its layer (0-based)"""
+        if self.simulation.topology == 'stratified':
+            # Find this mix's position in its layer
+            layer_mixes = self.simulation.network.network_dict[self.layer]
+            for i, mix in enumerate(layer_mixes):
+                if mix.id == self.id:
+                    return i
+        return 0  # fallback
 
     def receive_message(self, msg):
         if not self.simulation.startAttack:  # if a mix reaches a poolsize of 5 percent higher than the average,
@@ -29,10 +42,18 @@ class PoissonMix(Mix):
             lambdaClient = self.simulation.rate_client
             average = (clients * lambdaClient * self.simulation.mu) * self.pr_mix
             var1 = len(self.pool) >= average
-            print(f"var1 -> {var1}  self.pool -> {len(self.pool)}  average -> {average}")
+            print(f"var1 -> {var1}  len(self.pool) -> {len(self.pool)}  average -> {average}")
             if self.simulation.topology == 'stratified':
+                # print(f'[{msg.id}] Entered mix {self.id} ReceiveMsg() at time {self.env.now}')
                 if var1 and self.layer == 1:
-                    self.env.process(self.simulation.set_stable_mix(msg.next_hop_index - 1))
+                    # print(f'[{msg.id}] [Mix {self.id}] Calling set_stable_mix at time {self.env.now}')
+                    if self.simulation.routing == 'larmix':
+                        layer_position = self.get_layer_position()
+                        print(f'[{msg.id}] [Mix {self.id}] Calling set_stable_mix for index {layer_position} at time {self.env.now}')
+                        self.env.process(self.simulation.set_stable_mix(layer_position))
+                    else:
+                        self.env.process(self.simulation.set_stable_mix(self.id - 1))
+                    
                 #if all(self.simulation.stableMixL1):
                     #for i in range(len(self.simulation.stableMixL1)):
                         #self.simulation.setStableMix(i)
@@ -65,7 +86,7 @@ class PoissonMix(Mix):
         for i in range(0, self.n_targets):
             self.Pmix[i] += msg.pr_target[i]
         if msg.target_bool and self.simulation.printing:
-            print(f'Target message arrived at mix {self.id} at time {self.env.now} and Number of messages inside '
+            print(f'[{msg.id}] [Mix {self.id}] Target message arrived at time {self.env.now} and Number of messages inside '
                   f'the pool {len(self.pool)}')
         msg.next_hop_index += 1
         if msg.route[msg.next_hop_index] == None:
@@ -87,11 +108,10 @@ class PoissonMix(Mix):
         hop_index = msg.next_hop_index - 1  # because next_hop_index starts at 1 after leaving client
         if hop_index < 0:
             hop_index = 0  # safety for first hop
-        delay_for_this_hop = msg.delays[hop_index+1] 
+        delay_for_this_hop = msg.delays[hop_index] 
         
-    
         yield self.env.timeout(delay_for_this_hop)
-        print(f"Processing Delay of Msg {msg.id} (hop {hop_index}) => {delay_for_this_hop}")
+        print(f"[{msg.id}] [Hop {hop_index}] [Mix {self.id}] Processing Delay Completed => {delay_for_this_hop}")
         self.update_probabilities(msg, len(self.pool))
         next_hop = msg.route[msg.next_hop_index]
         self.pool.remove(msg)

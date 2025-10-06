@@ -10,3 +10,18 @@ class Message:
         self.target_bool = target_bool  # True if this message is a target message
         self.time_left = 0
         self.next_hop_index = 1
+    
+    def get_total_latency(self):
+        """Calculate total latency: sum of processing delays + link delays"""
+        processing_latency = sum(self.delays) if self.delays else 0
+        link_latency = sum(self.link_delays) if self.link_delays else 0
+        total_latency = processing_latency + link_latency
+        return total_latency
+    
+    def get_processing_latency(self):
+        """Get total processing delay"""
+        return sum(self.delays) if self.delays else 0
+    
+    def get_link_latency(self):
+        """Get total link delay"""
+        return sum(self.link_delays) if self.link_delays else 0

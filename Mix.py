@@ -16,7 +16,6 @@ class Mix:
         self.layer = position  # 1, 2, 3, ... this has no meaning in a freeroute simulation!
         self.corrupt = corrupt  # corrupt mix or not
         self.Pmix = []# probability this mix contains the target message
-        self.latency_to_neighbors = {}  # dict of {neighbor_id: latency}
 
         for i in range(0, self.n_targets):
             self.Pmix.append(float(0.0))

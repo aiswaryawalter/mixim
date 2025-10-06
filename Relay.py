@@ -50,9 +50,9 @@ class Attacker:
             relay_start = self.env.now
             yield self.env.timeout(link_delay)
             relay_end = self.env.now
-            observed_latency = relay_end - relay_start
-            print(f"==>>[Latency] {msg.id} Observed Link Delay (hop {current_hop_index}) => {observed_latency}")
-            print(f"==>>[Latency] {msg.id} Link Delay (hop {current_hop_index}): {link_delay}")
+            observed_link_delay = relay_end - relay_start
+            # print(f"==>>[Latency] {msg.id} Observed Link Delay (hop {current_hop_index}) => {observed_link_delay}")
+            print(f"==>>[Latency] {msg.id} Link Delay Completed (hop {current_hop_index}): {link_delay}")
         else:
             # Fallback to default link delay
             yield self.env.timeout(0.05)
@@ -63,7 +63,7 @@ class Attacker:
         self.checkEndSim()
 
     def checkEndSim(self):  # check to end simulation logic
-        if self.env.now >= (self.simulation.SimDuration + self.simulation.burnout)and (self.simulation.n_targets == self.n_target_chosen_attacker):
+        if self.env.now >= (self.simulation.SimDuration + self.simulation.burnout) and (self.simulation.n_targets == self.n_target_chosen_attacker):
             if self.simulation.printing:
                 print('Simulation duration limit reached')
             self.simulation.endEvent.succeed()  # end simulation if time has expired

@@ -42,24 +42,10 @@ class Network:
         # larmix
         self.latency_matrix = simulation.latency_matrix
         self.node_coords = simulation.node_coords
-        # self.layers = self.diversify_layers(self.nodes, self.node_coords, self.n_layers)
 
         self.server_info = pd.read_csv('servers.csv')
-        # self.latency_info = pd.read_csv('latency.csv')
-        # self.latency_map = self.build_latency_map()
 
         self.create_network()
-    
-    # larmix
-    # def build_latency_map(self):
-    #     latency_map = {}
-    #     for _, row in self.latency_info.iterrows():
-    #         src = row['source_id']
-    #         dst = row['target_id']
-    #         latency = row['latency_ms'] / 1000.0  # convert to seconds
-    #         latency_map[(src, dst)] = latency
-    #         latency_map[(dst, src)] = latency  # symmetric
-    #     return latency_map
 
     def create_network(self):
         mixnb = 1
@@ -88,6 +74,8 @@ class Network:
                     # larmix
                     server_row = self.server_info.iloc[(mixnb - 1) % len(self.server_info)]
                     mix.server_id = server_row['id']
+                    print(f"[DEBUG] Created mix - Node ID: {mix.id}, Server ID: {mix.server_id}, Layer: {mix.layer}")
+
                     # mix.location = server_row['location']
                     self.all_mixes.add(mix)
                     self.network_dict[layer] += [mix]
@@ -99,6 +87,9 @@ class Network:
 
                 mix_ids = [mix.server_id for mix in self.all_mixes]
                 print(f"[Larmix] Mix ids ==> {mix_ids}")
+                print(f"[DEBUG] Before diversification:")
+                for mix in self.all_mixes:
+                    print(f"  Mix ID: {mix.id}, Server ID: {mix.server_id}, Layer: {mix.layer}")
                 diversified_layers = self.diversify_layers(mix_ids, coords, self.num_layers, self.mixesPerLayer)
                 if any(len(layer) == 0 for layer in diversified_layers):
                     print("[ERROR] Diversification produced empty layer.")
@@ -111,6 +102,10 @@ class Network:
                                                     if mix.server_id in layer_server_ids]
                     for mix in self.network_dict[layer_id]:
                         mix.layer = layer_id
+                    
+                    print(f"[DEBUG] Layer {layer_id} after diversification:")
+                    for mix in self.network_dict[layer_id]:
+                        print(f"  Mix ID: {mix.id}, Server ID: {mix.server_id}, New Layer: {mix.layer}")
                     # neighbor assignment
                     if layer_id < self.num_layers and (layer_id + 1) in self.network_dict:
                         for mix in self.network_dict[layer_id]:
@@ -374,10 +369,20 @@ class Network:
 
         # Find entry mix with lowest latency from sender
         entry_candidates = self.network_dict[1]
-        entry_latencies = [
-            self.latency_matrix.get((sender_server_id, node.server_id), 50.0)
-            for node in entry_candidates
-        ]
+        entry_latencies = []
+        # print(f"[DEBUG] Sender server ID: {sender_server_id} (type: {type(sender_server_id)})")
+        # print(f"[DEBUG] Available latency matrix keys sample: {list(self.latency_matrix.keys())[:5]}")
+
+        for node in entry_candidates:
+            key = (sender_server_id, node.server_id)
+            if key in self.latency_matrix:
+                latency = self.latency_matrix[key]
+                # print(f"[DEBUG] Found latency for {key}: {latency}")
+            else:
+                latency = 50.0  # default
+                print(f"[DEBUG] Missing latency for {key}, using default: {latency}")
+            entry_latencies.append(latency)
+
         
         # Layer 1 Weight by inverse latency (lower latency = higher weight)
         entry_weights = 1 / (np.array(entry_latencies) + 1e-6)
@@ -385,8 +390,7 @@ class Network:
         current_node = np.random.choice(entry_candidates, p=entry_weights)
         path.append(current_node)
         
-        print(f"[LARMix] Layer 1 nodeID: {current_node.id} (serverID: {current_node.server_id})")
-        print(f"[LARMix] Layer 1 latencies from Server {sender_server_id} : {list(zip([n.server_id for n in entry_candidates], entry_latencies))}")
+        # print(f"[LARMix] Layer 1 -- nodeID: {current_node.id} -- serverID: {current_node.server_id}")
 
         # --- Pick one node from each remaining layer ---
         for layer_idx in range(2, self.num_layers):
@@ -397,7 +401,7 @@ class Network:
                 self.latency_matrix.get((current_node.server_id, node.server_id), 50.0)
                 for node in next_layer_nodes
             ]
-            print(f"[LARMix] Latencies from ServerID {current_node.server_id}: {latencies}")
+            # print(f"[LARMix] Latencies from ServerID {current_node.server_id}: {latencies}")
 
             # Rank nodes based on latency
             sorted_indices = np.argsort(latencies)
@@ -412,7 +416,7 @@ class Network:
                 rank = rank_map[node]
                 lij = self.latency_matrix.get((current_node.server_id, node.server_id), 50.0)
                 weight = ((1 / np.e) ** (rank * (1 - tau))) * ((1 / lij) ** (1 - tau))
-                print(f"[DEBUG] Mixnode {node.id} -> from Server ID {current_node.server_id} to {node.server_id} Latency : {lij}, Weight: {weight}")
+                # print(f"[DEBUG] Mixnode {node.id} -> from Server ID {current_node.server_id} to {node.server_id} Latency : {lij}, Weight: {weight}")
                 weights.append(weight)
 
             weights = np.array(weights) / np.sum(weights)
@@ -421,7 +425,7 @@ class Network:
 
             path.append(next_node)
             current_node = next_node
-            print(f"[LARMix] Layer {layer_idx} nodeID: {next_node.id} (serverID: {next_node.server_id})")
+            # print(f"[LARMix] Layer: {layer_idx} -- nodeID: {next_node.id} -- serverID: {next_node.server_id}")
         
         # Select exit mix considering both current node latency AND receiver location
         if self.num_layers > 1:
@@ -430,8 +434,8 @@ class Network:
             
             for node in exit_candidates:
                 # Combined latency: current -> exit + exit -> receiver
-                current_to_exit = self.latency_matrix.get((current_node.server_id, node.server_id), 50.0)
-                exit_to_receiver = self.latency_matrix.get((node.server_id, receiver_server_id), 50.0)
+                current_to_exit = self.latency_matrix.get((current_node.server_id, node.server_id), 0.05)
+                exit_to_receiver = self.latency_matrix.get((node.server_id, receiver_server_id), 0.05)
                 total_latency = current_to_exit + exit_to_receiver
                 exit_latencies.append(total_latency)
             
@@ -450,9 +454,9 @@ class Network:
             exit_node = np.random.choice(exit_candidates, p=exit_weights)
             path.append(exit_node)
             
-            print(f"[LARMix] Exit node: {exit_node.id} (server: {exit_node.server_id})")
-            print(f"[LARMix] Exit total latencies: {list(zip([n.server_id for n in exit_candidates], exit_latencies))}")
+            # print(f"[LARMix] Last Layer -- nodeID: {exit_node.id} -- serverID: {exit_node.server_id})")
+            # print(f"[LARMix] Exit total latencies: {list(zip([n.server_id for n in exit_candidates], exit_latencies))}")
 
-        print(f"[LARMix] Latency Aware Path: {path}")
+        # print(f"[LARMix] Latency Aware Path: {path}")
 
         return path
