@@ -437,6 +437,8 @@ class Simulation(object):
             print('Routing strategy: {}'.format(self.routing))
             print('Mix type: {}'.format(self.mix_type))
             print('Mu: {}'.format(self.mu))
+            if self.routing == 'larmix':
+                print('Tau: {}'.format(self.tau))
             print('Layers: {}, \n amount of mixes per layer: {}, \n Number of hops: {}'.format(self.n_layers, self.n_mixes_per_layer, self.n_hops))
             print(
                 'Amount of clients: {}, \n average delay between 2 messages: {}'.format(self.n_clients, self.rate_client))
