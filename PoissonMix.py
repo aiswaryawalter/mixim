@@ -43,42 +43,49 @@ class PoissonMix(Mix):
             average = (clients * lambdaClient * self.simulation.mu) * self.pr_mix
             var1 = len(self.pool) >= average
             print(f"var1 -> {var1}  len(self.pool) -> {len(self.pool)}  average -> {average}")
-            if self.simulation.topology == 'stratified':
-                # print(f'[{msg.id}] Entered mix {self.id} ReceiveMsg() at time {self.env.now}')
-                if var1 and self.layer == 1:
-                    # print(f'[{msg.id}] [Mix {self.id}] Calling set_stable_mix at time {self.env.now}')
-                    if self.simulation.routing == 'larmix':
-                        layer_position = self.get_layer_position()
-                        print(f'[{msg.id}] [Mix {self.id}] Calling set_stable_mix for index {layer_position} at time {self.env.now}')
-                        self.env.process(self.simulation.set_stable_mix(layer_position))
-                    else:
-                        self.env.process(self.simulation.set_stable_mix(self.id - 1))
-                    
-                #if all(self.simulation.stableMixL1):
-                    #for i in range(len(self.simulation.stableMixL1)):
-                        #self.simulation.setStableMix(i)
-            elif self.simulation.topology == 'cyclic_stratified':
-                if var1 and not self.simulation.stable_layer[self.layer - 1]:
-                    # mark this layer stable *once*
-                    self.simulation.stable_layer[self.layer - 1] = True
-                    if self.simulation.printing:
-                        print(f"[{self.env.now}] Layer {self.layer} stable "
-                            f"({sum(self.simulation.stable_layer)}/"
-                            f"{self.simulation.n_layers})")
-                    if all(self.simulation.stable_layer):
-                        self.simulation.startAttack = True
+            if var1:
+                if self.simulation.topology == 'stratified':
+                    # print(f'[{msg.id}] Entered mix {self.id} ReceiveMsg() at time {self.env.now}')
+                    if self.layer == 1:
+                        if self.simulation.routing == 'larmix':
+                            layer_position = self.get_layer_position()
+                            print(f'[{msg.id}] [Mix {self.id}] Calling set_stable_mix for index {layer_position} at time {self.env.now}')
+                            self.env.process(self.simulation.set_stable_mix(layer_position))
+                        else:
+                            self.env.process(self.simulation.set_stable_mix(self.id - 1))
+                        
+                    #if all(self.simulation.stableMixL1):
+                        #for i in range(len(self.simulation.stableMixL1)):
+                            #self.simulation.setStableMix(i)
+                elif self.simulation.topology == 'cyclic_stratified':
+                    if not self.simulation.stable_layer[self.layer - 1]:
+                        # mark this layer stable *once*
+                        self.simulation.stable_layer[self.layer - 1] = True
                         if self.simulation.printing:
-                            print(f"[{self.env.now}] Ring stable → startAttack = True")
-            elif self.simulation.topology == 'XRD':
-                if var1:
-                    self.env.process(self.simulation.setStableChain(self.n_chain))
-                if all(self.simulation.stableChains):
-                    for i in range(len(self.simulation.stableChains)):
-                        self.simulation.setStableChain(i)
-            elif self.simulation.topology == 'free route':
-                if var1:
-                    print(f"[{self.env.now}] Mix {self.id} stable => set_stable_mix({self.id - 1})")
-                    self.env.process(self.simulation.set_stable_mix(self.id - 1))
+                            print(f"[{self.env.now}] Layer {self.layer} stable "
+                                f"({sum(self.simulation.stable_layer)}/"
+                                f"{self.simulation.n_layers})")
+                        if all(self.simulation.stable_layer):
+                            self.simulation.startAttack = True
+                            if self.simulation.printing:
+                                print(f"[{self.env.now}] Ring stable → startAttack = True")
+                elif self.simulation.topology == 'XRD':
+                    if var1:
+                        self.env.process(self.simulation.setStableChain(self.n_chain))
+                    if all(self.simulation.stableChains):
+                        for i in range(len(self.simulation.stableChains)):
+                            self.simulation.setStableChain(i)
+                elif self.simulation.topology == 'free route':
+                    if self.simulation.routing == 'larmix':
+                        # For LARMix free route, use mix position in the all_mixes list
+                        all_mixes = self.simulation.network.network_dict[1]
+                        mix_position = next((i for i, mix in enumerate(all_mixes) if mix.id == self.id), 0)
+                        print(f"[{self.env.now}] LARMix Free Route: Mix {self.id} (position {mix_position}) stable")
+                        self.env.process(self.simulation.set_stable_mix(mix_position))
+                    else:
+                        # Original logic for non-LARMix free route
+                        print(f"[{self.env.now}] Mix {self.id} stable => set_stable_mix({self.id - 1})")
+                        self.env.process(self.simulation.set_stable_mix(self.id - 1))
             if self.simulation.topology == 'ba topology':
                 if len(self.pool) >= 2:  
                     print(f"[BA Debug] Mix {self.id} is stable => Calling set_stable_mix({self.id - 1})")

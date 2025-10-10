@@ -152,7 +152,7 @@ class Client:
             print(f"[LARMix] Sender Client: {self.id} --- Server: {sender_server_id}")
             print(f"[LARMix] Receiver Client: {receiver.id} --- Server: {receiver_server_id}")
 
-            best_route = self.simulation.network.sample_latency_aware_path(self.simulation.tau, sender_server_id, receiver_server_id)
+            best_route = self.simulation.network.larmix.sample_larmix_path_stratified(self.simulation.tau, sender_server_id, receiver_server_id)
             route = [self] + best_route + [receiver]
             route_ids = [node.id for node in route]
              
@@ -162,6 +162,49 @@ class Client:
                 delays.append(delay_per_mix)
             
             print(f"[LARMix] Complete Route: {[(getattr(node, 'server_id', node.server_id), getattr(node, 'id', node.id)) for node in route]}")
+
+        elif (self.simulation.routing == 'larmix'
+              and self.simulation.topology == 'free route'):
+            # NEW: LARMix with free route topology
+            all_server_ids = [int(sid) for sid in self.simulation.node_coords.keys()]
+
+            # Get server IDs used by mix nodes (all mixes are in network_dict[1] for free route)
+            mix_server_ids = set()
+            for mix in self.all_mixes:  # all_mixes contains all mixes in free route
+                if hasattr(mix, 'server_id'):
+                    mix_server_ids.add(int(mix.server_id))
+            
+            # Available server IDs for clients
+            available_client_server_ids = [int(sid) for sid in all_server_ids if sid not in mix_server_ids]
+            
+            if len(available_client_server_ids) < 2:
+                raise ValueError(f"Not enough available server IDs for clients. Need at least 2, have {len(available_client_server_ids)}")
+
+            # Assign server IDs to sender and receiver
+            sender_server_id = np.random.choice(available_client_server_ids) 
+            self.server_id = sender_server_id 
+            receiver_server_candidates = [sid for sid in available_client_server_ids if sid != sender_server_id]
+            receiver_server_id = np.random.choice(receiver_server_candidates)
+            receiver = sample(list(self.other_clients), k=1)[0]
+            receiver.server_id = receiver_server_id
+
+            print(f"[LARMix Free Route] Sender Client: {self.id} --- Server: {sender_server_id}")
+            print(f"[LARMix Free Route] Receiver Client: {receiver.id} --- Server: {receiver_server_id}")
+
+            # Sample latency-aware path through free route network
+            best_route = self.simulation.network.larmix.sample_larmix_path_free_route(
+                self.simulation.tau, sender_server_id, receiver_server_id, self.n_hops
+            )
+            route = [self] + best_route + [receiver]
+            route_ids = [getattr(node, 'id', node.id) for node in route]
+            
+            # Processing delays at each mix
+            for _ in range(len(best_route)):
+                delay_per_mix = exponential(self.mu)
+                delays.append(delay_per_mix)
+            
+            print(f"[LARMix Free Route] Route: {[(getattr(node, 'server_id', 'Client'), getattr(node, 'id', node.id)) for node in route]}")
+
         else:
             for layer in range(1, self.simulation.n_layers+1):
                 delay_per_mix = exponential(self.mu)
