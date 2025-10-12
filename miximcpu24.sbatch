@@ -3,7 +3,7 @@
 #SBATCH --output=Logs/mixim-%j.out
 #SBATCH --error=Logs/mixim-%j.err
 #SBATCH --cpus-per-task=8
-#SBATCH --time=24:00:00
+#SBATCH --time=12:00:00
 #SBATCH --mem=768G
 
 module load python/3.12
