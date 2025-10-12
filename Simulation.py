@@ -217,6 +217,7 @@ class Simulation(object):
             print('Topology: {}'.format(self.topology))
             print('Routing strategy: {}'.format(self.routing))
             print('Mix type: {}'.format(self.mix_type))
+            if self.topology == 'stratified': print('Batch Size: {}'.format(self.batch_size))
             print('Layers: {}, amount of mixes per layer: {}'.format(self.n_layers, self.n_mixes_per_layer))
             print(
                 'Amount of clients: {}, average delay between 2 messages: {}'.format(self.n_clients, self.rate_client))

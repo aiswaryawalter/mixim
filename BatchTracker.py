@@ -23,15 +23,16 @@ out_msg_mapping_set = {}
 anonymity_set = {}
 anonymity_set_size = {}
 msg_count = 0
-window_size = 2 # number of messages after which to log metrics
+window_size = 1 # number of messages after which to log metrics
 window_index = 0
 last_metrics_save_time = 0
-metrics_save_interval = 1 # 20 sim time units; set to 3600 seconds for 1 hour; set to 7200 for 2 hours
+metrics_save_interval = 0.2 # make it 0.2 later. 1 sim time units; set to 3600 seconds for 1 hour; set to 7200 for 2 hours
 
 def compute_batch_permutations(self, message):
     try:
         batchtracking_start_time = time.time()
         global valids, msg_count, window_index, last_metrics_save_time
+        logger.info(f"==>> window_size: {window_size} ===> metrics_save_interval: {metrics_save_interval}")
         msg_count += 1
         out_batch_id = message.outgoing_batch_id
         out_msg_id = message.outgoing_msg_id
