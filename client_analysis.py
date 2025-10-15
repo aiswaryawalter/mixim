@@ -170,19 +170,19 @@ def create_client_impact_plots(results):
                     ax.annotate(f'{int(y)}', (x, y), textcoords="offset points", 
                                xytext=(0,10), ha='center', fontweight='bold', fontsize=9)
             
-            # Add trend analysis
-            if len(client_counts) >= 2:
-                # Calculate trend
-                if values[-1] > values[0]:
-                    trend = "↗"
-                elif values[-1] < values[0]:
-                    trend = "↘"
-                else:
-                    trend = "→"
+            # # Add trend analysis
+            # if len(client_counts) >= 2:
+            #     # Calculate trend
+            #     if values[-1] > values[0]:
+            #         trend = "↗"
+            #     elif values[-1] < values[0]:
+            #         trend = "↘"
+            #     else:
+            #         trend = "→"
                 
-                ax.text(0.02, 0.95, f'Trend: {trend}', transform=ax.transAxes, 
-                       verticalalignment='top', fontweight='bold', fontsize=10,
-                       bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+            #     ax.text(0.02, 0.95, f'Trend: {trend}', transform=ax.transAxes, 
+            #            verticalalignment='top', fontweight='bold', fontsize=10,
+            #            bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
     
     # Adjust layout
     plt.tight_layout()

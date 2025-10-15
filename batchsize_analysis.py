@@ -171,18 +171,18 @@ def create_batch_size_impact_plots(results):
                                xytext=(0,10), ha='center', fontweight='bold', fontsize=9)
             
             # Add trend analysis
-            if len(batch_sizes) >= 2:
-                # Calculate trend
-                if values[-1] > values[0]:
-                    trend = "↗"
-                elif values[-1] < values[0]:
-                    trend = "↘"
-                else:
-                    trend = "→"
+            # if len(batch_sizes) >= 2:
+            #     # Calculate trend
+            #     if values[-1] > values[0]:
+            #         trend = "↗"
+            #     elif values[-1] < values[0]:
+            #         trend = "↘"
+            #     else:
+            #         trend = "→"
                 
-                ax.text(0.02, 0.95, f'Trend: {trend}', transform=ax.transAxes, 
-                       verticalalignment='top', fontweight='bold', fontsize=10,
-                       bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+            #     ax.text(0.02, 0.95, f'Trend: {trend}', transform=ax.transAxes, 
+            #            verticalalignment='top', fontweight='bold', fontsize=10,
+            #            bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
     
     # Adjust layout
     plt.tight_layout()
