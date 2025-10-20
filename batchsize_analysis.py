@@ -103,99 +103,91 @@ def create_batch_size_impact_plots(results):
     plt.style.use('seaborn-v0_8')
     
     # Create subplots for each client count
-    fig, axes = plt.subplots(3, 3, figsize=(18, 15))
-    fig.suptitle('Impact of Batch Size on Anonymity Metrics)', 
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+    fig.suptitle('Impact of Batch Size on Anonymity Metrics', 
                  fontsize=16, fontweight='bold')
     
     colors = ['#e74c3c', '#3498db', '#2ecc71']  # Red, Blue, Green
+    client_counts = [10, 20, 30]
+    client_labels = ['10 Clients', '20 Clients', '30 Clients']
     metrics = ['uniquely_identified', 'avg_anonymity_size', 'accuracy_percentage']
     metric_titles = [
         'Number of Uniquely Identified Batches',
         'Average Anonymity Set Size', 
         'Accuracy Percentage (%)'
     ]
-    
-    client_counts = [10, 20, 30]
-    
-    for client_idx, n_clients in enumerate(client_counts):
-        print(f"\nCreating plots for Client Count {n_clients}")
+
+    # Plot each metric
+    for metric_idx, (metric_key, metric_title) in enumerate(zip(metrics, metric_titles)):
+        ax = axes[metric_idx]
         
-        if n_clients not in results or not results[n_clients]:
-            print(f"  No data available for client count {n_clients}")
-            continue
-        
-        client_data = results[n_clients]
-        batch_sizes = sorted(client_data.keys())
-        
-        if len(batch_sizes) < 2:
-            print(f"  Not enough batch sizes for client count {n_clients}")
-            continue
-        
-        # Plot each metric
-        for metric_idx, (metric_key, metric_title) in enumerate(zip(metrics, metric_titles)):
-            ax = axes[metric_idx, client_idx]
+        # Plot line for each client count
+        for client_idx, n_clients in enumerate(client_counts):
+            if n_clients not in results or not results[n_clients]:
+                print(f"  No data available for client count {n_clients}")
+                continue
             
-            # Extract values for this metric
+            client_data = results[n_clients]
+            batch_sizes = sorted(client_data.keys())
+            
+            if len(batch_sizes) < 2:
+                print(f"  Not enough batch sizes for client count {n_clients}")
+                continue
+            
+            # Extract values for this metric and client count
             values = [client_data[batch_size][metric_key] for batch_size in batch_sizes]
             
-            # Create line plot
+            # Create line plot for this client count
             ax.plot(batch_sizes, values, marker='o', linewidth=3, markersize=8, 
-                   color=colors[metric_idx], alpha=0.8, markerfacecolor='white', 
-                   markeredgewidth=2, markeredgecolor=colors[metric_idx])
-            
-            # Customize the plot
-            ax.set_title(f'{metric_title}\n({n_clients} Clients)', fontweight='bold', fontsize=11)
-            ax.set_xlabel('Batch Size', fontweight='bold')
-            ax.set_ylabel(metric_title.replace(' (%)', ''), fontweight='bold')
-            ax.grid(True, alpha=0.3)
-            ax.set_xticks(batch_sizes)
-            
-            # Set y-axis limits based on metric type
-            if metric_key == 'accuracy_percentage':
-                ax.set_ylim(0, 100)
-            elif metric_key == 'uniquely_identified':
-                ax.set_ylim(bottom=0)
-            else:  # avg_anonymity_size
-                ax.set_ylim(bottom=0)
+                   color=colors[client_idx], alpha=0.8, markerfacecolor='white', 
+                   markeredgewidth=2, markeredgecolor=colors[client_idx],
+                   label=client_labels[client_idx])
             
             # Add value annotations on points
             for x, y in zip(batch_sizes, values):
                 if metric_key == 'accuracy_percentage':
                     ax.annotate(f'{y:.1f}%', (x, y), textcoords="offset points", 
-                               xytext=(0,10), ha='center', fontweight='bold', fontsize=9)
+                               xytext=(0,10), ha='center', fontweight='bold', fontsize=8,
+                               color=colors[client_idx])
                 elif metric_key == 'avg_anonymity_size':
                     ax.annotate(f'{y:.1f}', (x, y), textcoords="offset points", 
-                               xytext=(0,10), ha='center', fontweight='bold', fontsize=9)
+                               xytext=(0,10), ha='center', fontweight='bold', fontsize=8,
+                               color=colors[client_idx])
                 else:  # uniquely_identified
                     ax.annotate(f'{int(y)}', (x, y), textcoords="offset points", 
-                               xytext=(0,10), ha='center', fontweight='bold', fontsize=9)
-            
-            # Add trend analysis
-            # if len(batch_sizes) >= 2:
-            #     # Calculate trend
-            #     if values[-1] > values[0]:
-            #         trend = "↗"
-            #     elif values[-1] < values[0]:
-            #         trend = "↘"
-            #     else:
-            #         trend = "→"
-                
-            #     ax.text(0.02, 0.95, f'Trend: {trend}', transform=ax.transAxes, 
-            #            verticalalignment='top', fontweight='bold', fontsize=10,
-            #            bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+                               xytext=(0,10), ha='center', fontweight='bold', fontsize=8,
+                               color=colors[client_idx])
+        
+        # Customize the plot
+        ax.set_title(f'{metric_title}', fontweight='bold', fontsize=12)
+        ax.set_xlabel('Batch Size', fontweight='bold', fontsize=11)
+        ax.set_ylabel(metric_title.replace(' (%)', ''), fontweight='bold', fontsize=11)
+        ax.grid(True, alpha=0.3)
+        ax.set_xticks([3, 4, 5])  # Ensure all batch sizes are shown
+        
+        # Set y-axis limits based on metric type
+        if metric_key == 'accuracy_percentage':
+            ax.set_ylim(0, 100)
+        elif metric_key == 'uniquely_identified':
+            ax.set_ylim(bottom=0)
+        else:  # avg_anonymity_size
+            ax.set_ylim(bottom=0)
+        
+        # Add legend
+        ax.legend(loc='best', fontsize=10, framealpha=0.9)
     
     # Adjust layout
     plt.tight_layout()
-    plt.subplots_adjust(top=0.93)
+    plt.subplots_adjust(top=0.88)
     
     # Save the plots
     diagrams_folder = Path('diagrams')
     diagrams_folder.mkdir(exist_ok=True)
     
-    output_path = diagrams_folder / 'batch_size_impact_analysis.png'
+    output_path = diagrams_folder / 'batch_size_impact_combined.png'
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
-    print(f"\nSaved comprehensive plot: {output_path}")
-    
+    print(f"\nSaved combined plot: {output_path}")
+        
     plt.show()
     
     return fig

@@ -57,89 +57,115 @@ def analyze_temporal_changes(csv_file_path):
         })
     
     metrics_df = pd.DataFrame(temporal_metrics)
+    return metrics_df, n_clients, batch_size, filename
     
-    # Create the visualization
-    create_temporal_plot(metrics_df, n_clients, batch_size, filename)
-    
-    return metrics_df
 
-def create_temporal_plot(metrics_df, n_clients, batch_size, filename):
+def create_combined_temporal_plots(all_results):
     """
-    Create a line plot showing temporal changes of the three metrics
+    Create combined temporal plots for each client count
+    """
+    # Group results by client count
+    client_groups = {}
+    for filename, data in all_results.items():
+        metrics_df, n_clients, batch_size, _ = data
+        if n_clients not in client_groups:
+            client_groups[n_clients] = {}
+        client_groups[n_clients][batch_size] = metrics_df
+    
+    # Create plots for each client count
+    for n_clients in sorted(client_groups.keys()):
+        create_client_temporal_plot(client_groups[n_clients], n_clients)
+
+def create_client_temporal_plot(batch_data, n_clients):
+    """
+    Create a temporal plot for one client count showing all batch sizes
     """
     # Set up the plot style
     plt.style.use('seaborn-v0_8')
     fig, axes = plt.subplots(3, 1, figsize=(14, 12))
-    fig.suptitle(f'Temporal Analysis: {n_clients} Clients, Batch Size {batch_size}', 
+    fig.suptitle(f'Temporal Analysis: {n_clients} Clients\n(Comparing Different Batch Sizes)', 
                  fontsize=16, fontweight='bold')
     
-    # Color scheme
-    colors = ['#e74c3c', '#3498db', '#2ecc71']
+    # Color scheme for different batch sizes
+    colors = ['#e74c3c', '#3498db', '#2ecc71']  # Red, Blue, Green for batch sizes 3, 4, 5
+    batch_sizes = sorted(batch_data.keys())
+    batch_labels = [f'Batch Size {bs}' for bs in batch_sizes]
     
-    # Plot 1: Number of Uniquely Identified Batches
-    axes[0].plot(metrics_df['sim_timestamp'], metrics_df['uniquely_identified'], 
-                 marker='o', linewidth=2, markersize=4, color=colors[0], alpha=0.8)
-    axes[0].set_title('Number of Uniquely Identified Batches Over Time', fontweight='bold')
-    axes[0].set_xlabel('Simulation Time')
-    axes[0].set_ylabel('Count of Uniquely Identified Batches')
-    axes[0].grid(True, alpha=0.3)
-    axes[0].set_ylim(bottom=0)
+    metrics = ['uniquely_identified', 'avg_anonymity_size', 'accuracy_percentage']
+    metric_titles = [
+        'Number of Uniquely Identified Batches Over Time',
+        'Average Anonymity Set Size Over Time',
+        'Accuracy Over Time (% of Correct Highest Probability)'
+    ]
+    metric_ylabels = [
+        'Count of Uniquely Identified Batches',
+        'Average Anonymity Set Size',
+        'Accuracy (%)'
+    ]
     
-    # Add statistics annotation
-    mean_unique = metrics_df['uniquely_identified'].mean()
-    max_unique = metrics_df['uniquely_identified'].max()
-    axes[0].text(0.02, 0.95, f'Mean: {mean_unique:.1f}\nMax: {max_unique}', 
-                 transform=axes[0].transAxes, verticalalignment='top',
-                 bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
-    
-    # Plot 2: Average Anonymity Set Size
-    axes[1].plot(metrics_df['sim_timestamp'], metrics_df['avg_anonymity_size'], 
-                 marker='s', linewidth=2, markersize=4, color=colors[1], alpha=0.8)
-    axes[1].set_title('Average Anonymity Set Size Over Time', fontweight='bold')
-    axes[1].set_xlabel('Simulation Time')
-    axes[1].set_ylabel('Average Anonymity Set Size')
-    axes[1].grid(True, alpha=0.3)
-    axes[1].set_ylim(bottom=0)
-    
-    # Add statistics annotation
-    mean_anon = metrics_df['avg_anonymity_size'].mean()
-    min_anon = metrics_df['avg_anonymity_size'].min()
-    max_anon = metrics_df['avg_anonymity_size'].max()
-    axes[1].text(0.02, 0.95, f'Mean: {mean_anon:.1f}\nMin: {min_anon:.1f}\nMax: {max_anon:.1f}', 
-                 transform=axes[1].transAxes, verticalalignment='top',
-                 bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
-    
-    # Plot 3: Accuracy Percentage
-    axes[2].plot(metrics_df['sim_timestamp'], metrics_df['accuracy_percentage'], 
-                 marker='^', linewidth=2, markersize=4, color=colors[2], alpha=0.8)
-    axes[2].set_title('Accuracy Over Time (% of Correct Highest Probability)', fontweight='bold')
-    axes[2].set_xlabel('Simulation Time')
-    axes[2].set_ylabel('Accuracy (%)')
-    axes[2].grid(True, alpha=0.3)
-    axes[2].set_ylim(0, 100)
-    
-    # Add statistics annotation
-    mean_acc = metrics_df['accuracy_percentage'].mean()
-    min_acc = metrics_df['accuracy_percentage'].min()
-    max_acc = metrics_df['accuracy_percentage'].max()
-    axes[2].text(0.02, 0.95, f'Mean: {mean_acc:.1f}%\nMin: {min_acc:.1f}%\nMax: {max_acc:.1f}%', 
-                 transform=axes[2].transAxes, verticalalignment='top',
-                 bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+    # Plot each metric
+    for metric_idx, (metric_key, metric_title, ylabel) in enumerate(zip(metrics, metric_titles, metric_ylabels)):
+        ax = axes[metric_idx]
+        
+        # Plot line for each batch size
+        for batch_idx, batch_size in enumerate(batch_sizes):
+            if batch_size not in batch_data:
+                continue
+                
+            metrics_df = batch_data[batch_size]
+            
+            # Create line plot for this batch size
+            ax.plot(metrics_df['sim_timestamp'], metrics_df[metric_key], 
+                   marker='o', linewidth=2, markersize=4, 
+                   color=colors[batch_idx], alpha=0.8,
+                   label=batch_labels[batch_idx])
+        
+        # Customize the plot
+        ax.set_title(metric_title, fontweight='bold')
+        ax.set_xlabel('Simulation Time')
+        ax.set_ylabel(ylabel)
+        ax.grid(True, alpha=0.3)
+        
+        # Set y-axis limits
+        if metric_key == 'accuracy_percentage':
+            ax.set_ylim(0, 100)
+        else:
+            ax.set_ylim(bottom=0)
+        
+        # Add legend
+        ax.legend(loc='best', fontsize=10, framealpha=0.9)
+        
+        # Add summary statistics
+        stats_text = []
+        for batch_idx, batch_size in enumerate(batch_sizes):
+            if batch_size not in batch_data:
+                continue
+            metrics_df = batch_data[batch_size]
+            mean_val = metrics_df[metric_key].mean()
+            if metric_key == 'accuracy_percentage':
+                stats_text.append(f'BS{batch_size}: {mean_val:.1f}%')
+            else:
+                stats_text.append(f'BS{batch_size}: {mean_val:.1f}')
+        
+        if stats_text:
+            ax.text(0.02, 0.95, 'Mean values:\n' + '\n'.join(stats_text), 
+                   transform=ax.transAxes, verticalalignment='top',
+                   bbox=dict(boxstyle='round', facecolor='white', alpha=0.8),
+                   fontsize=9)
     
     # Adjust layout and save
     plt.tight_layout()
-    plt.subplots_adjust(top=0.93)
+    plt.subplots_adjust(top=0.90)
     
     # Save the plot
     diagrams_folder = Path('diagrams')
-    diagrams_folder.mkdir(exist_ok=True)  # Create folder if it doesn't exist
-    output_path = diagrams_folder / f'temporal_analysis_{filename}.png'
+    diagrams_folder.mkdir(exist_ok=True)
+    
+    output_path = diagrams_folder / f'temporal_combined_{n_clients}_clients.png'
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
-    print(f"  - Saved plot: {output_path}")
+    print(f"Saved combined temporal plot: {output_path}")
     
-    # Show plot (comment out if running in batch)
     plt.show()
-    
     plt.close()
 
 def analyze_all_files(folder_path):
@@ -182,11 +208,8 @@ def create_summary_comparison(all_results):
     
     summary_data = []
     
-    for filename, metrics_df in all_results.items():
-        # Extract metadata
-        parts = filename.split('-')
-        n_clients = int(parts[1].replace('client', ''))
-        batch_size = int(parts[2].replace('batch', ''))
+    for filename, data in all_results.items():
+        metrics_df, n_clients, batch_size, _ = data
         
         # Calculate final window metrics
         final_metrics = metrics_df.iloc[-1] if len(metrics_df) > 0 else None
@@ -209,8 +232,12 @@ def create_summary_comparison(all_results):
     summary_df = pd.DataFrame(summary_data)
     
     # Save summary
-    summary_df.to_csv('temporal_analysis_summary.csv', index=False)
-    print(f"Summary saved to: temporal_analysis_summary.csv")
+    diagrams_folder = Path('diagrams')
+    diagrams_folder.mkdir(exist_ok=True)
+    
+    summary_path = diagrams_folder / 'temporal_combined_summary.csv'
+    summary_df.to_csv(summary_path, index=False)
+    print(f"Summary saved to: {summary_path}")
     
     # Print summary table
     print("\nSUMMARY OF ALL EXPERIMENTS:")
@@ -225,14 +252,32 @@ def create_summary_comparison(all_results):
 
 # Main execution
 if __name__ == "__main__":
+    print("Analyzing Temporal Changes with Combined Plots...")
+    print("=" * 50)
+    
     # Set the path to your final-logs folder
     logs_folder = "final-logs"  # Change this to your actual path
     
-    # Run the analysis
-    results = analyze_all_files(logs_folder)
+    # Analyze all files
+    all_results = analyze_all_files(logs_folder)
     
-    print(f"\nAnalysis complete! Generated {len(results)} temporal analysis plots.")
-    print("Each plot shows:")
-    print("  - Top panel: Number of uniquely identified batches over time")
-    print("  - Middle panel: Average anonymity set size over time") 
-    print("  - Bottom panel: Accuracy percentage over time")
+    if not all_results:
+        print("No data found to analyze!")
+        exit(1)
+    
+    # Create combined temporal plots
+    create_combined_temporal_plots(all_results)
+    
+    # Create summary statistics
+    create_summary_comparison(all_results)
+    
+    print(f"\nAnalysis complete!")
+    print("Generated files:")
+    print("  - diagrams/temporal_combined_10_clients.png")
+    print("  - diagrams/temporal_combined_20_clients.png") 
+    print("  - diagrams/temporal_combined_30_clients.png")
+    print("  - diagrams/temporal_combined_summary.csv")
+    print("\nEach diagram shows 3 graphs:")
+    print("  - Top: Number of uniquely identified batches over time (3 lines for batch sizes 3,4,5)")
+    print("  - Middle: Average anonymity set size over time (3 lines for batch sizes 3,4,5)")
+    print("  - Bottom: Accuracy percentage over time (3 lines for batch sizes 3,4,5)")
