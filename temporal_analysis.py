@@ -60,7 +60,7 @@ def analyze_temporal_changes(csv_file_path):
     return metrics_df, n_clients, batch_size, filename
     
 
-def create_combined_temporal_plots(all_results):
+def create_combined_temporal_plots(all_results, smoothing_window=3):
     """
     Create combined temporal plots for each client count
     """
@@ -74,15 +74,33 @@ def create_combined_temporal_plots(all_results):
     
     # Create plots for each client count
     for n_clients in sorted(client_groups.keys()):
-        create_client_temporal_plot(client_groups[n_clients], n_clients)
+        create_client_temporal_plot(client_groups[n_clients], n_clients, smoothing_window)
 
-def create_client_temporal_plot(batch_data, n_clients):
+def smooth_data(data, window_size=3):
+    """
+    Apply sliding window averaging to smooth the data
+    
+    Args:
+        data: pandas Series or numpy array of values
+        window_size: size of the sliding window (default: 3)
+    
+    Returns:
+        smoothed data as pandas Series
+    """
+    if len(data) < window_size:
+        return data  # Return original if not enough data points
+    
+    return data.rolling(window=window_size, center=True, min_periods=1).mean()
+
+def create_client_temporal_plot(batch_data, n_clients, smoothing_window=3):
     """
     Create a temporal plot for one client count showing all batch sizes
     """
     # Set up the plot style
     plt.style.use('seaborn-v0_8')
     fig, axes = plt.subplots(3, 1, figsize=(14, 12))
+
+    smoothing_text = f" (Smoothed with {smoothing_window}-point moving average)" if smoothing_window > 1 else ""
     fig.suptitle(f'Temporal Analysis: {n_clients} Clients\n(Comparing Different Batch Sizes)', 
                  fontsize=16, fontweight='bold')
     
@@ -95,7 +113,7 @@ def create_client_temporal_plot(batch_data, n_clients):
     metric_titles = [
         'Number of Uniquely Identified Batches Over Time',
         'Average Anonymity Set Size Over Time',
-        'Accuracy Over Time (% of Correct Highest Probability)'
+        'Accuracy Over Time (% that Correct Batch has Highest Probability)'
     ]
     metric_ylabels = [
         'Count of Uniquely Identified Batches',
@@ -112,17 +130,28 @@ def create_client_temporal_plot(batch_data, n_clients):
             if batch_size not in batch_data:
                 continue
                 
-            metrics_df = batch_data[batch_size]
-            
-            # Create line plot for this batch size
-            ax.plot(metrics_df['sim_timestamp'], metrics_df[metric_key], 
-                   marker='o', linewidth=2, markersize=4, 
-                   color=colors[batch_idx], alpha=0.8,
-                   label=batch_labels[batch_idx])
+            metrics_df = batch_data[batch_size].copy()
+
+            # Apply smoothing
+            if smoothing_window > 1:
+                smoothed_values = smooth_data(metrics_df[metric_key], smoothing_window)
+                # Plot both original (light/transparent) and smoothed (bold) lines
+                ax.plot(metrics_df['sim_timestamp'], metrics_df[metric_key], 
+                       color=colors[batch_idx], alpha=0.3, linewidth=1, linestyle='--')
+                ax.plot(metrics_df['sim_timestamp'], smoothed_values, 
+                       marker='o', linewidth=3, markersize=4, 
+                       color=colors[batch_idx], alpha=0.9,
+                       label=batch_labels[batch_idx])
+            else:
+                # Original plotting without smoothing
+                ax.plot(metrics_df['sim_timestamp'], metrics_df[metric_key], 
+                       marker='o', linewidth=2, markersize=4, 
+                       color=colors[batch_idx], alpha=0.8,
+                       label=batch_labels[batch_idx])
         
         # Customize the plot
         ax.set_title(metric_title, fontweight='bold')
-        ax.set_xlabel('Simulation Time')
+        ax.set_xlabel('Simulated Time')
         ax.set_ylabel(ylabel)
         ax.grid(True, alpha=0.3)
         
@@ -141,14 +170,21 @@ def create_client_temporal_plot(batch_data, n_clients):
             if batch_size not in batch_data:
                 continue
             metrics_df = batch_data[batch_size]
-            mean_val = metrics_df[metric_key].mean()
+
+            if smoothing_window > 1:
+                smoothed_values = smooth_data(metrics_df[metric_key], smoothing_window)
+                mean_val = smoothed_values.mean()
+            else:
+                mean_val = metrics_df[metric_key].mean()
+                
             if metric_key == 'accuracy_percentage':
                 stats_text.append(f'BS{batch_size}: {mean_val:.1f}%')
             else:
                 stats_text.append(f'BS{batch_size}: {mean_val:.1f}')
-        
+
         if stats_text:
-            ax.text(0.02, 0.95, 'Mean values:\n' + '\n'.join(stats_text), 
+            legend_text = 'Smoothed Mean values:\n' if smoothing_window > 1 else 'Mean values:\n'
+            ax.text(0.02, 0.95, legend_text + '\n'.join(stats_text), 
                    transform=ax.transAxes, verticalalignment='top',
                    bbox=dict(boxstyle='round', facecolor='white', alpha=0.8),
                    fontsize=9)
@@ -161,7 +197,7 @@ def create_client_temporal_plot(batch_data, n_clients):
     diagrams_folder = Path('diagrams')
     diagrams_folder.mkdir(exist_ok=True)
     
-    output_path = diagrams_folder / f'temporal_combined_{n_clients}_clients.png'
+    output_path = diagrams_folder / f'temporal_{smoothing_window}_smoothed_{n_clients}_clients.png'
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     print(f"Saved combined temporal plot: {output_path}")
     
@@ -265,8 +301,12 @@ if __name__ == "__main__":
         print("No data found to analyze!")
         exit(1)
     
-    # Create combined temporal plots
-    create_combined_temporal_plots(all_results)
+    # Create plots with different smoothing levels
+    smoothing_options = [1, 3, 5]  # 1 = no smoothing, 3 = 3-point average, 5 = 5-point average
+    
+    for smoothing in smoothing_options:
+        print(f"\nCreating plots with smoothing window = {smoothing}")
+        create_combined_temporal_plots(all_results, smoothing_window=smoothing)
     
     # Create summary statistics
     create_summary_comparison(all_results)
