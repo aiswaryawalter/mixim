@@ -302,7 +302,7 @@ if __name__ == "__main__":
         exit(1)
     
     # Create plots with different smoothing levels
-    smoothing_options = [1, 3, 5]  # 1 = no smoothing, 3 = 3-point average, 5 = 5-point average
+    smoothing_options = [5]  # 1 = no smoothing, 3 = 3-point average, 5 = 5-point average
     
     for smoothing in smoothing_options:
         print(f"\nCreating plots with smoothing window = {smoothing}")

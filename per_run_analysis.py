@@ -71,8 +71,8 @@ def create_combined_20client_4batch_plot(all_results, smoothing_window=3):
     plt.style.use('seaborn-v0_8')
     fig, axes = plt.subplots(3, 1, figsize=(16, 12))
     
-    smoothing_text = f" (Smoothed with {smoothing_window}-point moving average)" if smoothing_window > 1 else ""
-    fig.suptitle(f'Temporal Analysis: 20 Clients, Batch Size 4{smoothing_text}\n(Comparing Different Runs)', 
+    # smoothing_text = f" (Smoothed with {smoothing_window}-point moving average)" if smoothing_window > 1 else ""
+    fig.suptitle(f'Temporal Analysis: 20 Clients, Batch Size 4\n(Comparing Different Runs)', 
                  fontsize=16, fontweight='bold')
     
     # Color scheme for different runs
@@ -125,7 +125,7 @@ def create_combined_20client_4batch_plot(all_results, smoothing_window=3):
         
         # Customize the plot
         ax.set_title(metric_title, fontweight='bold', fontsize=12)
-        ax.set_xlabel('Simulation Time', fontweight='bold')
+        ax.set_xlabel('Simulated Time', fontweight='bold')
         ax.set_ylabel(ylabel, fontweight='bold')
         ax.grid(True, alpha=0.3)
         
@@ -153,7 +153,7 @@ def create_combined_20client_4batch_plot(all_results, smoothing_window=3):
                 stats_text.append(f'{run_labels[run_idx]}: {mean_val:.1f}')
 
         if stats_text:
-            legend_text = 'Smoothed Mean values:\n' if smoothing_window > 1 else 'Mean values:\n'
+            legend_text = 'Mean values:\n' if smoothing_window > 1 else 'Mean values:\n'
             ax.text(0.02, 0.95, legend_text + '\n'.join(stats_text), 
                    transform=ax.transAxes, verticalalignment='top',
                    bbox=dict(boxstyle='round', facecolor='white', alpha=0.8),
@@ -277,7 +277,7 @@ if __name__ == "__main__":
     print(f"\nFound {len(all_results)} runs to analyze")
     
     # Create plots with different smoothing levels
-    smoothing_options = [1, 3, 5]  # 1 = no smoothing, 3 = 3-point average, 5 = 5-point average
+    smoothing_options = [5]  # 1 = no smoothing, 3 = 3-point average, 5 = 5-point average
     
     for smoothing in smoothing_options:
         print(f"\nCreating plots with smoothing window = {smoothing}")
