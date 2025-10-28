@@ -32,7 +32,10 @@ class Client:
                 self.all_mixes += self.network_dict[layer]
         elif self.simulation.topology == 'XRD':
             self.set_chains = self.network_dict
-        if self.simulation.topology == 'free route':
+        elif self.simulation.topology == 'free route':
+            for layer in range(1, len(self.network_dict) + 1):
+                self.all_mixes += self.network_dict[layer]
+        elif self.simulation.topology == 'grid':
             for layer in range(1, len(self.network_dict) + 1):
                 self.all_mixes += self.network_dict[layer]
         self.env.process(self.send_message('Real', self.rate_client))
@@ -204,6 +207,40 @@ class Client:
                 delays.append(delay_per_mix)
             
             print(f"[LARMix Free Route] Route: {[(getattr(node, 'server_id', 'Client'), getattr(node, 'id', node.id)) for node in route]}")
+
+        elif (self.simulation.topology == 'grid' and 
+          self.simulation.routing == 'source'):
+        
+            # For grid topology, create path through multiple grid nodes
+            current_node = choice(self.all_mixes)  # Start at random grid node
+            route.append(current_node)
+            route_ids.append(current_node.id)
+            
+            print(f"[Grid Debug] Starting at node {current_node.id} at ({current_node.grid_row},{current_node.grid_col})")
+            
+            # Create path through grid (random walk or shortest path)
+            for hop in range(self.n_hops - 1):
+                if not current_node.neighbors:
+                    break
+                    
+                # Choose random neighbor (random walk)
+                next_node = choice(current_node.neighbors)
+                
+                # Avoid immediate backtracking (optional)
+                attempts = 0
+                while next_node in route[-2:] and attempts < 3 and len(current_node.neighbors) > 1:
+                    next_node = choice(current_node.neighbors)
+                    attempts += 1
+                
+                delay_per_mix = exponential(self.mu)
+                delays.append(delay_per_mix)
+                
+                route.append(next_node)
+                route_ids.append(next_node.id)
+                
+                print(f"[Grid Debug] Hop {hop+1}: Moving to node {next_node.id} at ({next_node.grid_row},{next_node.grid_col})")
+                
+                current_node = next_node
 
         else:
             for layer in range(1, self.simulation.n_layers+1):

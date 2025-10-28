@@ -18,6 +18,7 @@ class Simulation(object):
 
     def __init__(self, mix_type, simDuration, rate_client, mu, logging, topology, fully_connected, n_clients, n_hops, 
                  flush_percent, printing, flush_timeout, threshold, routing, latency_bound, tau, balancing,
+                 grid_width, grid_height,
                  n_layers, n_mixes_per_layer, corrupt, unifrom_corruption, probability_dist_mixes, nbr_cascacdes, m_barabasi_mixes, client_dummies,
                  rate_client_dummies, link_based_dummies, multiple_hops_dummies, rate_mix_dummies, Network_template):
 
@@ -36,12 +37,16 @@ class Simulation(object):
         self.multiple_hop_dummies = multiple_hops_dummies
         self.rate_mix_dummies = rate_mix_dummies
 
-        #  larmix
+        #  For larmix
         self.latency_matrix = load_latency_matrix("latency.csv")
         self.node_coords = load_server_coords("servers.csv")
         self.tau = tau
         self.balancing = balancing
         self.latency_bound = latency_bound
+
+        # For grid topology
+        self.grid_width = int(grid_width)
+        self.grid_height = int(grid_height)
 
         self.n_clients = n_clients
         self.n_hops = n_hops
@@ -64,9 +69,10 @@ class Simulation(object):
         self.n_targets = 0
         self.MsgsDropped = []
 
-        
-
         self.dummyID = 0
+        if topology == 'grid':
+            self.n_mixes_per_layer = self.grid_width * self.grid_height
+            self.n_layers = 1  # Grid is essentially single layer
         time_stable = ((1 / self.rate_client) / self.n_layers) * self.mu + 2
         if self.mix_type == 'poisson':
             self.n_targets = int(((self.SimDuration - time_stable) ) / 2)
@@ -201,6 +207,24 @@ class Simulation(object):
                     self,
                     client_no,
                     self.network.network_dict, 
+                    self.rate_client,
+                    self.mu,
+                    probabilityDistribution,
+                    n_targets,
+                    self.n_hops,
+                    client_dummies,
+                    rate_client_dummies,
+                    Log
+                )
+                self.clientsSet.add(client)
+            for client in self.clientsSet:
+                client.other_clients = self.clientsSet - {client}
+        elif self.topology == 'grid':
+            for client_no in range(self.n_clients):
+                client = Client.Client(
+                    self,
+                    client_no,
+                    self.network.network_dict,  # Grid network dict
                     self.rate_client,
                     self.mu,
                     probabilityDistribution,

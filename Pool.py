@@ -26,6 +26,7 @@ class Pool(Mix):
             print(
                 f'Target message arrived at mix {self.id} at time {self.env.now} and size of the pool{len(self.pool)}')
         if len(self.pool) >= self.threshold:
+            print(f"[DEBUG] Threshold reached at Mix {self.id}")
             self.flush()
             self.round +=1
             self.simulation.numberrounds.append(self.round)
@@ -37,6 +38,8 @@ class Pool(Mix):
         flushing_list = sample(self.pool, k=flush_amount)
 
         for message in flushing_list:
+            print(f"[DEBUG] Flushing Msg {message.id} at Mix {self.id}")
+            self.messages_processed += 1
             self.update_probabilities(message)
             if not isinstance(message.route[message.next_hop_index], Client) and message.route[message.next_hop_index] is None:
                 # not the last mix, for hop by hop routing

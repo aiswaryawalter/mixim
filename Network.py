@@ -245,6 +245,72 @@ class Network:
                 neighbor_ids = adjacency_list[node_id]
                 # Convert neighbor indices to actual mix objects
                 mix.neighbors = [self.network_dict[1][nbr_id] for nbr_id in neighbor_ids]
+        
+        elif self.topology == 'grid':
+            # Get grid dimensions from simulation config
+            grid_width = self.simulation.grid_width
+            grid_height = self.simulation.grid_height
+
+            print(f"Creating {grid_height}x{grid_width} (HxW) grid topology")
+            
+            # Create grid structure
+            grid_nodes = {}  
+            self.network_dict[1] = []  # All grid nodes in "layer 1"
+            
+            # Create all nodes first
+            for row in range(grid_height):
+                for col in range(grid_width):
+                    varCorrupt = False  
+                    
+                    mix = self.get_mixnode(
+                        self.mix_type,
+                        mixnb,
+                        1,  # position = 1 (single layer)
+                        self.numberTargets,
+                        varCorrupt,
+                        1.0 / (grid_width * grid_height)  # equal weight
+                    )
+                    
+                    # Store grid position in mix
+                    mix.grid_row = row
+                    mix.grid_col = col
+                    mix.neighbors = []  # Will be set below
+                    
+                    # LARMix server assignment
+                    server_row = self.server_info.iloc[(mixnb - 1) % len(self.server_info)]
+                    mix.server_id = server_row['id']
+                    
+                    grid_nodes[(row, col)] = mix
+                    self.network_dict[1].append(mix)
+                    self.all_mixes.add(mix)
+                    
+                    print(f"Created grid node at ({row},{col}) - Mix ID: {mixnb}")
+                    mixnb += 1
+            
+            # Set up neighbor connections
+            for row in range(grid_height):
+                for col in range(grid_width):
+                    current_mix = grid_nodes[(row, col)]
+                    neighbors = []
+                    
+                    # Add north neighbor
+                    if row > 0:
+                        neighbors.append(grid_nodes[(row-1, col)])
+                    
+                    # Add south neighbor
+                    if row < grid_height - 1:
+                        neighbors.append(grid_nodes[(row+1, col)])
+                    
+                    # Add west neighbor
+                    if col > 0:
+                        neighbors.append(grid_nodes[(row, col-1)])
+                    
+                    # Add east neighbor
+                    if col < grid_width - 1:
+                        neighbors.append(grid_nodes[(row, col+1)])
+                    
+                    current_mix.neighbors = neighbors
+                    print(f"Mix {current_mix.id} at ({row},{col}) has {len(neighbors)} neighbors: {[n.id for n in neighbors]}")
 
 
 

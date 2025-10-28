@@ -21,8 +21,6 @@ class PoissonMix(Mix):
         self.pool_dummies = []
         if (self.link_based_dummies or self.multiple_hop_dummies) and (not self.corrupt) and self.layer != self.simulation.n_layers:
             self.env.process(self.send_dummies())
-        # Add layer position mapping
-        # self.layer_position = self.get_layer_position()
     
     #for larmix stratified topology
     def get_layer_position(self):
