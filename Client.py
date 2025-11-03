@@ -216,30 +216,41 @@ class Client:
             route.append(current_node)
             route_ids.append(current_node.id)
             
-            print(f"[Grid Debug] Starting at node {current_node.id} at ({current_node.grid_row},{current_node.grid_col})")
+            print(f"[Grid Debug] Hop 1: Starting at node {current_node.id} at ({current_node.grid_row},{current_node.grid_col})")
             
             # Create path through grid (random walk or shortest path)
             for hop in range(self.n_hops - 1):
                 if not current_node.neighbors:
+                    print(f"[Grid Debug] No neighbors available at node {current_node.id}!")
                     break
                     
-                # Choose random neighbor (random walk)
-                next_node = choice(current_node.neighbors)
+                # Get neighbors that haven't been visited yet
+                unvisited_neighbors = [neighbor for neighbor in current_node.neighbors 
+                              if neighbor not in route]
                 
-                # Avoid immediate backtracking (optional)
-                attempts = 0
-                while next_node in route[-2:] and attempts < 3 and len(current_node.neighbors) > 1:
-                    next_node = choice(current_node.neighbors)
-                    attempts += 1
-                
+                if unvisited_neighbors:
+                    # Choose from unvisited neighbors
+                    next_node = choice(unvisited_neighbors)
+                    print(f"[Grid Debug] Hop {hop+2}: Moving to node {next_node.id} at ({next_node.grid_row},{next_node.grid_col}) [unvisited]")
+                else:
+                    # All neighbors visited - allow backtracking but try to avoid immediate previous
+                    available_neighbors = [neighbor for neighbor in current_node.neighbors 
+                                        if neighbor != route[-2]]  # Avoid immediate backtrack
+                    
+                    if available_neighbors:
+                        next_node = choice(available_neighbors)
+                        print(f"[Grid Debug] Hop {hop+2}: Moving to node {next_node.id} at ({next_node.grid_row},{next_node.grid_col}) [backtracking]")
+                    else:
+                        # Only one neighbor (edge case) - must backtrack
+                        next_node = choice(current_node.neighbors)
+                        print(f"[Grid Debug] Hop {hop+2}: Moving to node {next_node.id} at ({next_node.grid_row},{next_node.grid_col}) [forced backtrack]")
+
                 delay_per_mix = exponential(self.mu)
                 delays.append(delay_per_mix)
                 
                 route.append(next_node)
                 route_ids.append(next_node.id)
-                
-                print(f"[Grid Debug] Hop {hop+1}: Moving to node {next_node.id} at ({next_node.grid_row},{next_node.grid_col})")
-                
+                                
                 current_node = next_node
 
         else:
