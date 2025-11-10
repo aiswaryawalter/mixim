@@ -302,37 +302,70 @@ class Simulation(object):
                 else:
                     print(f"[WARNING] Layer {layer_num} not found in network_dict")
                     layer_totals[layer_num] = 0
-        
-        # # First pass: calculate total messages per layer
-        # for layer_num in range(1, self.n_layers + 1):
-        #     layer_total = 0
-        #     for mix in self.network.network_dict[layer_num]:
-        #         layer_total += mix.messages_processed
-        #     layer_totals[layer_num] = layer_total
-        #     print(f"Layer {layer_num} total messages processed: {layer_total}")
-        
-        # # Second pass: calculate load percentages and log
-        # for layer_num in range(1, self.n_layers + 1):
-        #     layer_total = layer_totals[layer_num]
-        #     print(f"\nLayer {layer_num} Mix Loads:")
-            
-        #     for mix in self.network.network_dict[layer_num]:
-        #         if layer_total > 0:
-        #             load_percentage = (mix.messages_processed / layer_total) * 100
-        #         else:
-        #             load_percentage = 0.0
+        elif self.topology == 'ba topology':
+            # BA topology: all mixes are in layer 1 (similar to free route)
+            if 1 in self.network.network_dict:
+                layer_total = sum(mix.messages_processed for mix in self.network.network_dict[1])
+                layer_totals[1] = layer_total
+                print(f"BA topology total messages processed: {layer_total}")
                 
-        #         print(f"  Mix {mix.id}: {mix.messages_processed} msgs ({load_percentage:.2f}%)")
+                print(f"\nBA Topology Mix Loads:")
+                for mix in self.network.network_dict[1]:
+                    if layer_total > 0:
+                        load_percentage = (mix.messages_processed / layer_total) * 100
+                    else:
+                        load_percentage = 0.0
+                    
+                    print(f"  Mix {mix.id}: {mix.messages_processed} msgs ({load_percentage:.2f}%)")
+                    
+                    # Log the mix load data
+                    self.Log.log_mix_load(
+                        mix.id,
+                        1,  # All mixes in "layer 1" for BA topology
+                        mix.messages_processed,
+                        layer_total,
+                        load_percentage,
+                        mix.corrupt
+                    )
+            else:
+                print("[WARNING] No mixes found in BA topology")
+                layer_totals[1] = 0
                 
-        #         # Log the mix load data
-        #         self.Log.log_mix_load(
-        #             mix.id,
-        #             layer_num,
-        #             mix.messages_processed,
-        #             layer_total,
-        #             load_percentage,
-        #             mix.corrupt
-        #         )
+        elif self.topology == 'grid':
+            # Grid topology: all mixes are in layer 1 (similar to free route)
+            if 1 in self.network.network_dict:
+                layer_total = sum(mix.messages_processed for mix in self.network.network_dict[1])
+                layer_totals[1] = layer_total
+                print(f"Grid topology total messages processed: {layer_total}")
+                
+                print(f"\nGrid Topology Mix Loads:")
+                for mix in self.network.network_dict[1]:
+                    if layer_total > 0:
+                        load_percentage = (mix.messages_processed / layer_total) * 100
+                    else:
+                        load_percentage = 0.0
+                    
+                    # Show grid position if available
+                    if hasattr(mix, 'grid_row') and hasattr(mix, 'grid_col'):
+                        position_info = f" at ({mix.grid_row},{mix.grid_col})"
+                    else:
+                        position_info = ""
+                    
+                    print(f"  Mix {mix.id}{position_info}: {mix.messages_processed} msgs ({load_percentage:.2f}%)")
+                    
+                    # Log the mix load data
+                    self.Log.log_mix_load(
+                        mix.id,
+                        1,  # All grid mixes in "layer 1"
+                        mix.messages_processed,
+                        layer_total,
+                        load_percentage,
+                        mix.corrupt
+                    )
+            else:
+                print("[WARNING] No mixes found in grid topology")
+                layer_totals[1] = 0
+
         
         return layer_totals
 
@@ -638,37 +671,64 @@ class Simulation(object):
                             balance_quality = 100 - (std_load / avg_load * 100)
                             print(f"  Load balance quality: {balance_quality:.1f}% (100% = perfect)")
             
+            elif self.topology == 'grid':
+                # Grid topology: all mixes are in layer 1 (similar to free route)
+                if 1 in self.network.network_dict and layer_totals.get(1, 0) > 0:
+                    layer_mixes = self.network.network_dict[1]
+                    load_percentages = []
+                    
+                    for mix in layer_mixes:
+                        load_pct = (mix.messages_processed / layer_totals[1]) * 100
+                        load_percentages.append(load_pct)
+                    
+                    if load_percentages:
+                        avg_load = np.mean(load_percentages)
+                        std_load = np.std(load_percentages)
+                        max_load = max(load_percentages)
+                        min_load = min(load_percentages)
+                        
+                        print(f"Grid Topology Network ({self.grid_width}x{self.grid_height}):")
+                        print(f"  Average load: {avg_load:.2f}%")
+                        print(f"  Load std deviation: {std_load:.2f}%")
+                        print(f"  Load range: {min_load:.2f}% - {max_load:.2f}%")
+                        
+                        # Load balance quality (lower std = better balance)
+                        if avg_load > 0:
+                            balance_quality = 100 - (std_load / avg_load * 100)
+                            print(f"  Load balance quality: {balance_quality:.1f}% (100% = perfect)")
+                        
+                        # Grid-specific statistics
+                        corner_nodes = []
+                        edge_nodes = []
+                        center_nodes = []
+                        
+                        for mix in layer_mixes:
+                            if hasattr(mix, 'grid_row') and hasattr(mix, 'grid_col'):
+                                row, col = mix.grid_row, mix.grid_col
+                                neighbors_count = len(mix.neighbors)
+                                
+                                if neighbors_count == 2:  # Corner nodes
+                                    corner_nodes.append(mix.messages_processed)
+                                elif neighbors_count == 3:  # Edge nodes
+                                    edge_nodes.append(mix.messages_processed)
+                                elif neighbors_count == 4:  # Center nodes
+                                    center_nodes.append(mix.messages_processed)
+                        
+                        # Analyze load by node type
+                        if corner_nodes:
+                            avg_corner = np.mean(corner_nodes)
+                            print(f"  Corner nodes (2 neighbors): avg {avg_corner:.1f} msgs")
+                        if edge_nodes:
+                            avg_edge = np.mean(edge_nodes)
+                            print(f"  Edge nodes (3 neighbors): avg {avg_edge:.1f} msgs")
+                        if center_nodes:
+                            avg_center = np.mean(center_nodes)
+                            print(f"  Center nodes (4 neighbors): avg {avg_center:.1f} msgs")
+
             else:
                 print(f"Load balancing statistics not implemented for topology: {self.topology}")
             
             print('-------------------------------------')
         
-            # # Calculate load balancing metrics
-            # for layer_num in range(1, self.n_layers + 1):
-            #     layer_mixes = self.network.network_dict[layer_num]
-            #     load_percentages = []
-                
-            #     for mix in layer_mixes:
-            #         if layer_totals[layer_num] > 0:
-            #             load_pct = (mix.messages_processed / layer_totals[layer_num]) * 100
-            #             load_percentages.append(load_pct)
-                
-            #     if load_percentages:
-            #         avg_load = np.mean(load_percentages)
-            #         std_load = np.std(load_percentages)
-            #         max_load = max(load_percentages)
-            #         min_load = min(load_percentages)
-                    
-            #         print(f"Layer {layer_num}:")
-            #         print(f"  Average load: {avg_load:.2f}%")
-            #         print(f"  Load std deviation: {std_load:.2f}%")
-            #         print(f"  Load range: {min_load:.2f}% - {max_load:.2f}%")
-                    
-            #         # Load balance quality (lower std = better balance)
-            #         if avg_load > 0:
-            #             balance_quality = 100 - (std_load / avg_load * 100)
-            #             print(f"  Load balance quality: {balance_quality:.1f}% (100% = perfect)")
-            
-            # print('-------------------------------------')
 
         return entropy, entropy_mean, entropy_median, entropy_q25
