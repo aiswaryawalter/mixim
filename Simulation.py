@@ -18,7 +18,7 @@ class Simulation(object):
 
     def __init__(self, mix_type, simDuration, rate_client, mu, logging, topology, fully_connected, n_clients, n_hops, 
                  flush_percent, printing, flush_timeout, threshold, routing, latency_bound, tau, balancing,
-                 grid_width, grid_height,
+                 grid_width, grid_height, mix_as_client,
                  n_layers, n_mixes_per_layer, corrupt, unifrom_corruption, probability_dist_mixes, nbr_cascacdes, m_barabasi_mixes, client_dummies,
                  rate_client_dummies, link_based_dummies, multiple_hops_dummies, rate_mix_dummies, Network_template):
 
@@ -47,6 +47,7 @@ class Simulation(object):
         # For grid topology
         self.grid_width = int(grid_width)
         self.grid_height = int(grid_height)
+        self.mix_as_client = mix_as_client
 
         self.n_clients = n_clients
         self.n_hops = n_hops
@@ -220,23 +221,42 @@ class Simulation(object):
             for client in self.clientsSet:
                 client.other_clients = self.clientsSet - {client}
         elif self.topology == 'grid':
-            for client_no in range(self.n_clients):
-                client = Client.Client(
-                    self,
-                    client_no,
-                    self.network.network_dict,  # Grid network dict
-                    self.rate_client,
-                    self.mu,
-                    probabilityDistribution,
-                    n_targets,
-                    self.n_hops,
-                    client_dummies,
-                    rate_client_dummies,
-                    Log
-                )
-                self.clientsSet.add(client)
-            for client in self.clientsSet:
-                client.other_clients = self.clientsSet - {client}
+            if self.mix_as_client:
+                print("[DEBUG] Grid topology with mix-as-client enabled")
+                self.clientsSet = set()
+                
+                all_grid_mixes = []
+                if 1 in self.network.network_dict:
+                    all_grid_mixes = self.network.network_dict[1]
+                
+                for mix in all_grid_mixes:
+                    mix.setup_as_client(self, self.rate_client, self.mu, 
+                                    probabilityDistribution, n_targets, self.n_hops, 
+                                    client_dummies, rate_client_dummies, Log)
+                    self.clientsSet.add(mix)
+                
+                for mix in all_grid_mixes:
+                    mix.other_clients = set(all_grid_mixes) - {mix}
+                
+                print(f"[DEBUG] Set up {len(all_grid_mixes)} grid mixes as client-mix hybrids")
+            else:
+                for client_no in range(self.n_clients):
+                    client = Client.Client(
+                        self,
+                        client_no,
+                        self.network.network_dict,  # Grid network dict
+                        self.rate_client,
+                        self.mu,
+                        probabilityDistribution,
+                        n_targets,
+                        self.n_hops,
+                        client_dummies,
+                        rate_client_dummies,
+                        Log
+                    )
+                    self.clientsSet.add(client)
+                for client in self.clientsSet:
+                    client.other_clients = self.clientsSet - {client}
     
     def calculate_mix_loads(self):
         """Calculate load for each mix node"""
@@ -368,7 +388,57 @@ class Simulation(object):
 
         
         return layer_totals
-
+    
+    def calculate_mix_sending_stats(self):
+        """Calculate sending statistics for each mix when they act as clients"""
+        print("\n----------Mix Sending Analysis----------")
+        
+        if not (self.topology == 'grid' and self.mix_as_client):
+            print("Mix sending analysis only available for grid topology with mix_as_client enabled")
+            return {}
+        
+        sending_stats = {}
+        
+        if 1 in self.network.network_dict:
+            total_sent = sum(getattr(mix, 'messages_sent', 0) for mix in self.network.network_dict[1])
+            sending_stats['total_sent'] = total_sent
+            
+            print(f"Grid topology total messages sent by mixes: {total_sent}")
+            
+            if total_sent > 0:
+                print(f"\nGrid Mix Sending Stats:")
+                
+                for mix in self.network.network_dict[1]:
+                    messages_sent = getattr(mix, 'messages_sent', 0)
+                    messages_processed = getattr(mix, 'messages_processed', 0)
+                    
+                    if total_sent > 0:
+                        send_percentage = (messages_sent / total_sent) * 100
+                    else:
+                        send_percentage = 0.0
+                    
+                    # Show grid position if available
+                    if hasattr(mix, 'grid_row') and hasattr(mix, 'grid_col'):
+                        position_info = f" at ({mix.grid_row},{mix.grid_col})"
+                    else:
+                        position_info = ""
+                    
+                    print(f"  Mix {mix.id}{position_info}: sent {messages_sent} msgs ({send_percentage:.2f}%), processed {messages_processed} msgs")
+                    
+                    sending_stats[mix.id] = {
+                        'messages_sent': messages_sent,
+                        'messages_processed': messages_processed,
+                        'send_percentage': send_percentage,
+                        'grid_row': getattr(mix, 'grid_row', None),
+                        'grid_col': getattr(mix, 'grid_col', None)
+                    }
+            else:
+                print("No messages were sent by any mix!")
+        else:
+            print("[WARNING] No mixes found in grid topology")
+        
+        return sending_stats
+    
     def periodic_log_saver(self):
         """Periodically save logs during simulation"""
         while True:
@@ -474,6 +544,21 @@ class Simulation(object):
         # need to change this for other topologies
         layer_totals = self.calculate_mix_loads()
 
+        if self.topology == 'grid' and self.mix_as_client:
+            sending_stats = self.calculate_mix_sending_stats()
+            
+            # Log sending stats for each mix
+            for mix in self.network.network_dict[1]:
+                mix_stats = sending_stats.get(mix.id, {})
+                self.Log.log_mix_sending_stats(
+                    mix.id,
+                    mix_stats.get('messages_sent', 0),
+                    mix_stats.get('messages_processed', 0),
+                    mix_stats.get('send_percentage', 0.0),
+                    mix_stats.get('grid_row', None),
+                    mix_stats.get('grid_col', None)
+                )
+
         # Data from Clients(senders and receivers)
         df_sent_messages = pd.DataFrame(self.Log.sent_messages)
         df_received_messages = pd.DataFrame(self.Log.received_messages)
@@ -486,6 +571,9 @@ class Simulation(object):
             df_received_messages.to_csv(f'{logDir}ReceivedMessages.csv')
             df_dummies_messages.to_csv(f'{logDir}DummyMessages.csv')
             df_mix_loads.to_csv(f'{logDir}MixLoads.csv', index=False) 
+            if self.topology == 'grid' and self.mix_as_client:
+                df_mix_sending_stats = pd.DataFrame(self.Log.mix_sending_stats)
+                df_mix_sending_stats.to_csv(f'{logDir}MixSendingStats.csv', index=False)
         else:
             pass
 
@@ -618,34 +706,6 @@ class Simulation(object):
                             print(f"  Load balance quality: {balance_quality:.1f}% (100% = perfect)")
                 else:
                     print("No load data available for free route network")
-            
-            # elif self.topology == 'stratified':
-            #     # Stratified: iterate through actual layers
-            #     for layer_num in range(1, self.n_layers + 1):
-            #         if layer_num in self.network.network_dict and layer_totals.get(layer_num, 0) > 0:
-            #             layer_mixes = self.network.network_dict[layer_num]
-            #             load_percentages = []
-                        
-            #             for mix in layer_mixes:
-            #                 load_pct = (mix.messages_processed / layer_totals[layer_num]) * 100
-            #                 load_percentages.append(load_pct)
-                        
-            #             if load_percentages:
-            #                 avg_load = np.mean(load_percentages)
-            #                 std_load = np.std(load_percentages)
-            #                 max_load = max(load_percentages)
-            #                 min_load = min(load_percentages)
-                            
-            #                 print(f"Layer {layer_num}:")
-            #                 print(f"  Average load: {avg_load:.2f}%")
-            #                 print(f"  Load std deviation: {std_load:.2f}%")
-            #                 print(f"  Load range: {min_load:.2f}% - {max_load:.2f}%")
-                            
-            #                 # Load balance quality (lower std = better balance)
-            #                 if avg_load > 0:
-            #                     balance_quality = 100 - (std_load / avg_load * 100)
-            #                     print(f"  Load balance quality: {balance_quality:.1f}% (100% = perfect)")
-            
             elif self.topology == 'ba topology':
                 # BA topology: all mixes are in layer 1 (similar to free route)
                 if 1 in self.network.network_dict and layer_totals.get(1, 0) > 0:

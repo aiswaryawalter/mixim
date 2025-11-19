@@ -45,6 +45,14 @@ class Log:
             "LoadPercentage": [],  # messages processed by this mix / total messages in layer
             "LayerTotalMessages": [],
         }
+        self.mix_sending_stats = {
+            "MixID": [],
+            "MessagesSent": [],
+            "MessagesProcessed": [],
+            "SendPercentage": [],
+            "GridRow": [],
+            "GridCol": []
+        }
     def dummies_dropped_end_link(self, dummy, dropping_node):
         processing_latency = dummy.get_processing_latency()
         link_latency = dummy.get_link_latency()
@@ -102,4 +110,13 @@ class Log:
         self.mix_loads["MessagesProcessed"].append(messages_processed)
         self.mix_loads["LayerTotalMessages"].append(layer_total)
         self.mix_loads["LoadPercentage"].append(load_percentage)
+
+    def log_mix_sending_stats(self, mix_id, messages_sent, messages_processed, send_percentage, grid_row, grid_col):
+        """Log mix sending statistics"""
+        self.mix_sending_stats["MixID"].append(mix_id)
+        self.mix_sending_stats["MessagesSent"].append(messages_sent)
+        self.mix_sending_stats["MessagesProcessed"].append(messages_processed)
+        self.mix_sending_stats["SendPercentage"].append(send_percentage)
+        self.mix_sending_stats["GridRow"].append(grid_row)
+        self.mix_sending_stats["GridCol"].append(grid_col)
     

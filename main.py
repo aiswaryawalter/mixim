@@ -18,6 +18,8 @@ def main(rate):
     # For grid topology
     grid_width = config.getfloat('TOPOLOGY', 'grid_width', fallback=3.0)
     grid_height = config.getfloat('TOPOLOGY', 'grid_height', fallback=3.0)
+    mix_as_client = config.getboolean('TOPOLOGY', 'mix_as_client', fallback=False)
+
 
     # For larmix routing
     latency_bound = config.getfloat('TOPOLOGY', 'latency_bound', fallback=10.0)
@@ -64,7 +66,7 @@ def main(rate):
                             topology=topology,fully_connected= fully_connected, n_clients=n_clients, n_hops=n_hops,
                             flush_percent=flush_percent, printing=True, flush_timeout=timeout, threshold=threshold, routing=routing, 
                             latency_bound=latency_bound, tau=tau, balancing=balancing,
-                            grid_width=grid_width, grid_height=grid_height,
+                            grid_width=grid_width, grid_height=grid_height, mix_as_client=mix_as_client,
                             n_layers=n_layer, n_mixes_per_layer=n_mix_per_layer,corrupt= corrupt_mixes,unifrom_corruption= balanced_corruption,
                             probability_dist_mixes=weights,nbr_cascacdes = n_cascade, m_barabasi_mixes = m_barabasi_mixes, client_dummies=client_dummies,
                             rate_client_dummies = rate_client_dummies, link_based_dummies = link_dummies, multiple_hops_dummies = multiple_hops_dummies,

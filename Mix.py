@@ -17,6 +17,7 @@ class Mix:
         self.corrupt = corrupt  # corrupt mix or not
         self.Pmix = []# probability this mix contains the target message
         self.messages_processed = 0 
+        self.messages_sent = 0  
 
         for i in range(0, self.n_targets):
             self.Pmix.append(float(0.0))
