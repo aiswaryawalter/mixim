@@ -5,125 +5,93 @@ import pandas as pd
 from main import main
 import os
 import time
-import statistics
 
-def run_simulation_with_threshold(threshold_value, runs=10):
-    """Run simulation `runs` times with a given threshold and return averaged stats."""
-    print(f"[ANALYSIS] Starting simulations for threshold = {threshold_value} (runs={runs})")
+def run_simulation_with_threshold(threshold_value):
+    """Run simulation with specific threshold value"""
+    print(f"[ANALYSIS] Starting simulation with threshold = {threshold_value}")
+    
+    # Create a temporary config with the specific threshold
     config = configparser.ConfigParser()
     config.read('ConfigFile.ini')
-
-    # Ensure MIXING section exists
-    if 'MIXING' not in config:
-        config.add_section('MIXING')
+    
+    # Update threshold for this run
     config.set('MIXING', 'threshold', str(threshold_value))
-    # ensure no external clients when mixes act as clients
-    if 'DEFAULT' not in config:
-        config['DEFAULT'] = {}
-    config['DEFAULT']['n_clients'] = '0'
-
+    
+    # Create a temporary config file
     temp_config_name = f'temp_config_thresh_{threshold_value}.ini'
     with open(temp_config_name, 'w') as configfile:
         config.write(configfile)
-
-    mean_list = []
-    median_list = []
-    q25_list = []
-    sim_time_list = []
-
+    
     try:
-        # Backup and swap config once for all runs
-        if os.path.exists('ConfigFile_backup.ini'):
-            os.remove('ConfigFile_backup.ini')
+        # Temporarily replace the config file
         os.rename('ConfigFile.ini', 'ConfigFile_backup.ini')
         os.rename(temp_config_name, 'ConfigFile.ini')
-
-        for run_idx in range(1, runs + 1):
-            print(f"[RUN] threshold={threshold_value} run {run_idx}/{runs}")
-            start_run = time.time()
-            result = main(3)  # keep calling existing main; adjust if your main signature differs
-            run_time = time.time() - start_run
-
-            # robust parsing of result (support list/tuple/dict)
-            mean_entropy = 0; median_entropy = 0; q25_entropy = 0
-            if isinstance(result, dict):
-                mean_entropy = result.get('mean_entropy', 0)
-                median_entropy = result.get('median_entropy', 0)
-                q25_entropy = result.get('q25_entropy', 0)
-            elif isinstance(result, (list, tuple)) and len(result) >= 4:
-                mean_entropy = result[1] or 0
-                median_entropy = result[2] or 0
-                q25_entropy = result[3] or 0
-            else:
-                # fallback: try to extract from simulation.Log if main returns simulation object
-                try:
-                    mean_entropy = float(getattr(result, 'mean_entropy', 0))
-                    median_entropy = float(getattr(result, 'median_entropy', 0))
-                    q25_entropy = float(getattr(result, 'q25_entropy', 0))
-                except Exception:
-                    pass
-
-            mean_list.append(mean_entropy)
-            median_list.append(median_entropy)
-            q25_list.append(q25_entropy)
-            sim_time_list.append(run_time)
-
-            print(f"[RUN-RESULT] run {run_idx}: mean={mean_entropy:.4f}, median={median_entropy:.4f}, q25={q25_entropy:.4f}, time={run_time:.2f}s")
-
+        
+        # Run the simulation
+        result = main(3)  # Pass the rate parameter
+        
+        # Extract the results
+        entropy_data = {
+            'threshold': threshold_value,
+            'entropy_values': result[0] if len(result) > 0 else [],
+            'mean_entropy': result[1] if len(result) > 1 else 0,
+            'median_entropy': result[2] if len(result) > 2 else 0,
+            'q25_entropy': result[3] if len(result) > 3 else 0
+        }
+        
+        print(f"[ANALYSIS] Completed threshold = {threshold_value}, mean entropy = {entropy_data['mean_entropy']:.4f}")
+        return entropy_data
+        
     finally:
-        # restore original config
+        # Restore original config
         if os.path.exists('ConfigFile.ini'):
             os.remove('ConfigFile.ini')
         if os.path.exists('ConfigFile_backup.ini'):
             os.rename('ConfigFile_backup.ini', 'ConfigFile.ini')
-        # remove temp if still present
         if os.path.exists(temp_config_name):
             os.remove(temp_config_name)
 
-    # compute averages and stddevs
-    avg_mean = statistics.mean(mean_list) if mean_list else 0
-    avg_median = statistics.mean(median_list) if median_list else 0
-    avg_q25 = statistics.mean(q25_list) if q25_list else 0
-    avg_time = statistics.mean(sim_time_list) if sim_time_list else 0
-
-    return {
-        'threshold': threshold_value,
-        'mean_entropy': avg_mean,
-        'median_entropy': avg_median,
-        'q25_entropy': avg_q25,
-        'simulation_time': avg_time,
-        'raw_means': mean_list,
-        'raw_medians': median_list,
-        'raw_q25s': q25_list,
-        'raw_times': sim_time_list
-    }
-
-def create_entropy_statistics_plot(runs_per_threshold=10):
-    """Main analysis: run each pool size `runs_per_threshold` times and plot averaged stats."""
-    # ...existing code...
+def create_entropy_statistics_plot():
+    """Main analysis function that creates only the entropy statistics plot"""
+    
+    # Pool sizes to test
     pool_sizes = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]
-
+    
+    print(f"[ANALYSIS] Testing pool sizes: {pool_sizes}")
+    print(f"[ANALYSIS] Total simulations to run: {len(pool_sizes)}")
+    
+    # Store results
     results = []
+    
+    # Run simulations sequentially
     for i, threshold in enumerate(pool_sizes, 1):
-        print(f"\n[PROGRESS] Running threshold {threshold} ({i}/{len(pool_sizes)})")
+        print(f"\n[PROGRESS] Running simulation {i}/{len(pool_sizes)} (threshold={threshold})")
         start_time = time.time()
+        
         try:
-            res = run_simulation_with_threshold(threshold, runs=runs_per_threshold)
-            results.append({
-                'threshold': res['threshold'],
-                'mean_entropy': res['mean_entropy'],
-                'median_entropy': res['median_entropy'],
-                'q25_entropy': res['q25_entropy'],
-                'simulation_time': res['simulation_time']
-            })
-            print(f"[PROGRESS] threshold={threshold} avg mean={res['mean_entropy']:.4f} time={res['simulation_time']:.2f}s")
+            result = run_simulation_with_threshold(threshold)
+            result['simulation_time'] = time.time() - start_time
+            results.append(result)
+            
+            print(f"[PROGRESS] Simulation {i} completed in {result['simulation_time']:.2f} seconds")
+            
         except Exception as e:
-            print(f"[ERROR] threshold {threshold} failed: {e}")
-            results.append({'threshold': threshold,'mean_entropy':0,'median_entropy':0,'q25_entropy':0,'simulation_time':0})
-
+            print(f"[ERROR] Simulation failed for threshold {threshold}: {e}")
+            # Add empty result to maintain data structure
+            results.append({
+                'threshold': threshold,
+                'entropy_values': [],
+                'mean_entropy': 0,
+                'median_entropy': 0,
+                'q25_entropy': 0,
+                'simulation_time': 0
+            })
+    
+    # Convert to DataFrame
     df = pd.DataFrame(results)
+    
+    # Save raw data
     df.to_csv('entropy_statistics_analysis.csv', index=False)
-
     print(f"\n[ANALYSIS] Raw data saved to 'entropy_statistics_analysis.csv'")
     
     # Filter out failed simulations (mean_entropy = 0)
