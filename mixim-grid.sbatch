@@ -4,7 +4,7 @@
 #SBATCH --error=Logs/mixim-%j.err
 #SBATCH --cpus-per-task=8
 #SBATCH --time=4:00:00
-#SBATCH --mem=768G
+#SBATCH --mem=32G
 
 module load python/3.12
 mkdir -p Logs
@@ -34,8 +34,18 @@ pip install -r requirements.txt
 echo "Starting job at $(date)"
 echo "Available memory: $(free -h)"
 
-python3.12 main.py 2>&1 | tee Logs/mixim-detailed-${SLURM_JOB_ID}.log
+echo "=== TESTING IMPORTS ==="
+python3.12 -c "from main import main; print('Import successful')" || {
+    echo "ERROR: Failed to import main"
+    exit 1
+}
 
-echo "=== JOB COMPLETED ==="
+echo "=== STARTING JOB ==="
+python3.12 grid_analysis.py 2>&1 | tee Logs/mixim-detailed-${SLURM_JOB_ID}.log
+
+EXIT_CODE=$?
+echo "=== JOB COMPLETED with exit code: $EXIT_CODE ==="
 echo "End time: $(date)"
+
+exit $EXIT_CODE
 echo "Final memory usage: $(free -h)"
