@@ -12,7 +12,7 @@ class Network:
     all_mixes = []
     network_dict = {}  # 1:[list of mixes in layer 1], 2:[list of mixes in layer 2], ...
 
-    def __init__(self, mix_type, num_layers, nbr_mixes_layers, corrupt, unifrom_corruption, simulation,
+    def __init__(self, mix_type, num_layers, nbr_mixes_layers, corrupt, uniform_corruption, simulation,
                  threshold,
                  flush_percent, topology,fully_connected, flushtime, probability_dist_mixes, n_cascades, 
                  m_barabasi_mixes,  link_based_dummies, multiple_hop_dummies, rate_mix_dummies, Network_template, numberTargets):
@@ -21,7 +21,7 @@ class Network:
         self.mix_type = mix_type
         self.mixesPerLayer = nbr_mixes_layers
         self.corrupt = corrupt
-        self.unifrom_corruption = unifrom_corruption
+        self.uniform_corruption = uniform_corruption
         self.env = simulation.env
         self.threshold = threshold
         self.flush_percent = flush_percent
@@ -57,7 +57,7 @@ class Network:
                 c = 0
                 self.network_dict[layer] = []
                 for _ in range(self.mixesPerLayer):
-                    if self.unifrom_corruption:
+                    if self.uniform_corruption:
                         if c < self.corrupt / self.simulation.n_layers:
                             varCorrupt = True
                             c += 1
@@ -172,7 +172,7 @@ class Network:
             Nbr_Corruption = 0
             
             for i in range(self.mixesPerLayer):  
-                if self.unifrom_corruption:
+                if self.uniform_corruption:
                     # (Same logic as 'stratified' to spread corruption)
                     varCorrupt = (Nbr_Corruption < self.corrupt)
                     if varCorrupt:
@@ -249,6 +249,10 @@ class Network:
             # Get grid dimensions from simulation config
             grid_width = self.simulation.grid_width
             grid_height = self.simulation.grid_height
+            total_grid_mixes = grid_width * grid_height
+    
+            Nbr_Corruption = 0
+            c = 0
 
             print(f"Creating {grid_height}x{grid_width} (HxW) grid topology")
             
@@ -259,7 +263,18 @@ class Network:
             # Create all nodes first
             for row in range(grid_height):
                 for col in range(grid_width):
-                    varCorrupt = False  
+                    if self.uniform_corruption:
+                        varCorrupt = (Nbr_Corruption < self.corrupt)
+                        if varCorrupt:
+                            Nbr_Corruption += 1
+                    else:
+                        # Random corruption
+                        if Nbr_Corruption < self.corrupt:
+                            varCorrupt = random.choice([True, False])
+                            if varCorrupt:
+                                Nbr_Corruption += 1
+                        else:
+                            varCorrupt = False 
                     
                     mix = self.get_mixnode(
                         self.mix_type,

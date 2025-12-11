@@ -67,7 +67,7 @@ def main(rate):
                             flush_percent=flush_percent, printing=True, flush_timeout=timeout, threshold=threshold, routing=routing, 
                             latency_bound=latency_bound, tau=tau, balancing=balancing,
                             grid_width=grid_width, grid_height=grid_height, mix_as_client=mix_as_client,
-                            n_layers=n_layer, n_mixes_per_layer=n_mix_per_layer,corrupt= corrupt_mixes,unifrom_corruption= balanced_corruption,
+                            n_layers=n_layer, n_mixes_per_layer=n_mix_per_layer,corrupt= corrupt_mixes,uniform_corruption= balanced_corruption,
                             probability_dist_mixes=weights,nbr_cascacdes = n_cascade, m_barabasi_mixes = m_barabasi_mixes, client_dummies=client_dummies,
                             rate_client_dummies = rate_client_dummies, link_based_dummies = link_dummies, multiple_hops_dummies = multiple_hops_dummies,
                             rate_mix_dummies = rate_mix_dummies, Network_template=None)

@@ -19,7 +19,7 @@ class Simulation(object):
     def __init__(self, mix_type, simDuration, rate_client, mu, logging, topology, fully_connected, n_clients, n_hops, 
                  flush_percent, printing, flush_timeout, threshold, routing, latency_bound, tau, balancing,
                  grid_width, grid_height, mix_as_client,
-                 n_layers, n_mixes_per_layer, corrupt, unifrom_corruption, probability_dist_mixes, nbr_cascacdes, m_barabasi_mixes, client_dummies,
+                 n_layers, n_mixes_per_layer, corrupt, uniform_corruption, probability_dist_mixes, nbr_cascacdes, m_barabasi_mixes, client_dummies,
                  rate_client_dummies, link_based_dummies, multiple_hops_dummies, rate_mix_dummies, Network_template):
 
         self.Log = Log()
@@ -60,7 +60,7 @@ class Simulation(object):
         self.m_barabasi_mixes = m_barabasi_mixes
         self.corrupt = corrupt
         self.probability_dist_mixes = probability_dist_mixes
-        self.unifrom_corruption = unifrom_corruption
+        self.uniform_corruption = uniform_corruption
         self.mix_type = mix_type
         self.routing = routing
         self.env = simpy.Environment()
@@ -81,7 +81,7 @@ class Simulation(object):
         else:
             self.n_targets = int((self.SimDuration - self.flush_timeout - 1) / 4)
         self.network = Network(self.mix_type, self.n_layers, self.n_mixes_per_layer, 
-                               self.corrupt,self.unifrom_corruption, self, self.threshold,
+                               self.corrupt,self.uniform_corruption, self, self.threshold,
                                self.flush_percent, self.topology, fully_connected, self.flush_timeout,
                                self.probability_dist_mixes,
                                self.n_cascades, self.m_barabasi_mixes, self.link_based_dummies, self.multiple_hop_dummies,
