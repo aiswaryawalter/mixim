@@ -19,9 +19,9 @@ def run_simulation_with_threshold(threshold_value, n_hops_value, runs=10):
     config.set('MIXING', 'threshold', str(threshold_value))
     
     # Update n_hops
-    if 'TOPOLOGY' not in config:
-        config.add_section('TOPOLOGY')
-    config.set('TOPOLOGY', 'n_hops', str(n_hops_value))
+    if 'DEFAULT' not in config:
+        config.add_section('DEFAULT')
+    config.set('DEFAULT', 'n_hops', str(n_hops_value))
     
     # Ensure no external clients when mixes act as clients
     if 'DEFAULT' not in config:
@@ -120,7 +120,7 @@ def create_entropy_statistics_plot_multi_hops(runs_per_threshold=10):
     """Main analysis: run multiple n_hops values, each with multiple pool sizes."""
     
     # Parameters to sweep
-    n_hops_values = [2, 3, 4, 5, 6, 7, 8, 9, 10]
+    n_hops_values = [2, 3, 4, 5, 6]
     pool_sizes = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]
     
     print(f"[ANALYSIS] Testing n_hops: {n_hops_values}")

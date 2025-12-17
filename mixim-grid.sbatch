@@ -3,7 +3,7 @@
 #SBATCH --output=Logs/mixim-%j.out
 #SBATCH --error=Logs/mixim-%j.err
 #SBATCH --cpus-per-task=8
-#SBATCH --time=4:00:00
+#SBATCH --time=2-00:00:00
 #SBATCH --mem=32G
 
 module load python/3.12
@@ -41,7 +41,7 @@ python3.12 -c "from main import main; print('Import successful')" || {
 }
 
 echo "=== STARTING JOB ==="
-python3.12 grid_analysis.py 2>&1 | tee Logs/mixim-detailed-${SLURM_JOB_ID}.log
+python3.12 grid_poolsize_hops_analysis.py 2>&1 | tee Logs/mixim-detailed-${SLURM_JOB_ID}.log
 
 EXIT_CODE=$?
 echo "=== JOB COMPLETED with exit code: $EXIT_CODE ==="
