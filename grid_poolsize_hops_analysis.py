@@ -7,7 +7,7 @@ import os
 import time
 import statistics
 
-def run_simulation_with_threshold(threshold_value, n_hops_value, runs=10):
+def run_simulation_with_threshold(threshold_value, n_hops_value, runs=20):
     """Run simulation `runs` times with a given threshold and n_hops, return averaged stats."""
     print(f"[ANALYSIS] Starting simulations for threshold={threshold_value}, n_hops={n_hops_value} (runs={runs})")
     config = configparser.ConfigParser()
@@ -77,6 +77,9 @@ def run_simulation_with_threshold(threshold_value, n_hops_value, runs=10):
             q25_list.append(q25_entropy)
             sim_time_list.append(run_time)
 
+            del result
+            gc.collect()
+
             print(f"[RUN-RESULT] run {run_idx}: mean={mean_entropy:.4f}, median={median_entropy:.4f}, q25={q25_entropy:.4f}, time={run_time:.2f}s")
 
     finally:
@@ -116,7 +119,7 @@ def run_simulation_with_threshold(threshold_value, n_hops_value, runs=10):
         'raw_times': sim_time_list
     }
 
-def create_entropy_statistics_plot_multi_hops(runs_per_threshold=10):
+def create_entropy_statistics_plot_multi_hops(runs_per_threshold=20):
     """Main analysis: run multiple n_hops values, each with multiple pool sizes."""
     
     # Parameters to sweep
@@ -282,7 +285,7 @@ def create_multi_hops_plots(df, n_hops_values, pool_sizes):
     plt.tight_layout()
     plt.savefig('entropy_analysis_multi_hops.png', dpi=300, bbox_inches='tight')
     plt.savefig('entropy_analysis_multi_hops.pdf', bbox_inches='tight')
-    plt.show()
+    # plt.show()
     
     print(f"[ANALYSIS] Plots saved as 'entropy_analysis_multi_hops.png' and '.pdf'")
 
@@ -353,13 +356,13 @@ def print_multi_hops_summary(df, n_hops_values):
 if __name__ == "__main__":
     print("[ENTROPY ANALYSIS] Multi-Hops Entropy vs Pool Size Analysis")
     print("[INFO] This will create plots showing entropy trends across different n_hops values")
-    print("[INFO] Each configuration runs 10 times, results are averaged")
+    print("[INFO] Each configuration runs 20 times, results are averaged")
     print("[INFO] Expected runtime: 30-60 minutes depending on your system\n")
     
     start_time = time.time()
     
     try:
-        create_entropy_statistics_plot_multi_hops(runs_per_threshold=10)
+        create_entropy_statistics_plot_multi_hops(runs_per_threshold=20)
         
         total_time = time.time() - start_time
         print(f"\n[ANALYSIS] Complete! Total runtime: {total_time/60:.2f} minutes")
