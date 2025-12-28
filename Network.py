@@ -250,12 +250,41 @@ class Network:
             grid_width = self.simulation.grid_width
             grid_height = self.simulation.grid_height
             total_grid_mixes = grid_width * grid_height
+
+            print(f"Creating {grid_height}x{grid_width} (HxW) grid topology")
+            print(f"Corruption setup: corrupt_mixes={self.corrupt}, uniform_corruption={self.uniform_corruption}")
+            
+            if self.corrupt > total_grid_mixes:
+                print(f"[WARNING] corrupt_mixes ({self.corrupt}) exceeds total mixes ({total_grid_mixes})")
+                self.corrupt = total_grid_mixes
+            
+            # Pre-determine which nodes will be corrupt
+            all_positions = [(r, c) for r in range(grid_height) for c in range(grid_width)]
+            
+            if self.uniform_corruption:
+                # BALANCED: Spread corruption evenly across grid
+                # Strategy: Select every Nth node
+                corrupt_positions = set()
+                
+                if self.corrupt > 0:
+                    step = max(1, total_grid_mixes // self.corrupt)
+                    idx = 0
+                    while len(corrupt_positions) < self.corrupt and idx < total_grid_mixes:
+                        corrupt_positions.add(all_positions[idx])
+                        idx += step
+                
+                # If we still need more (rounding issues), add randomly from remaining
+                while len(corrupt_positions) < self.corrupt:
+                    pos = random.choice(all_positions)
+                    corrupt_positions.add(pos)
+            else:
+                # RANDOM: Randomly select corrupt_mixes without replacement
+                corrupt_positions = set(random.sample(all_positions, k=self.corrupt))
+            
     
             Nbr_Corruption = 0
             c = 0
 
-            print(f"Creating {grid_height}x{grid_width} (HxW) grid topology")
-            
             # Create grid structure
             grid_nodes = {}  
             self.network_dict[1] = []  # All grid nodes in "layer 1"
@@ -263,19 +292,7 @@ class Network:
             # Create all nodes first
             for row in range(grid_height):
                 for col in range(grid_width):
-                    if self.uniform_corruption:
-                        varCorrupt = (Nbr_Corruption < self.corrupt)
-                        if varCorrupt:
-                            Nbr_Corruption += 1
-                    else:
-                        # Random corruption
-                        if Nbr_Corruption < self.corrupt:
-                            varCorrupt = random.choice([True, False])
-                            if varCorrupt:
-                                Nbr_Corruption += 1
-                        else:
-                            varCorrupt = False 
-                    
+                    varCorrupt = (row, col) in corrupt_positions
                     mix = self.get_mixnode(
                         self.mix_type,
                         mixnb,
