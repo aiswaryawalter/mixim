@@ -77,9 +77,6 @@ def run_simulation_with_threshold(threshold_value, n_hops_value, runs=20):
             q25_list.append(q25_entropy)
             sim_time_list.append(run_time)
 
-            del result
-            gc.collect()
-
             print(f"[RUN-RESULT] run {run_idx}: mean={mean_entropy:.4f}, median={median_entropy:.4f}, q25={q25_entropy:.4f}, time={run_time:.2f}s")
 
     finally:
@@ -174,15 +171,26 @@ def create_entropy_statistics_plot_multi_hops(runs_per_threshold=20):
         
         print(f"\n[PROGRESS] Completed n_hops = {n_hops}")
 
+    # Build DataFrame robustly and enforce expected columns
+    required_cols = [
+        'n_hops','threshold','mean_entropy','median_entropy','q25_entropy',
+        'simulation_time','std_mean','std_median','std_q25'
+    ]
     # Convert to DataFrame
     df = pd.DataFrame(all_results)
+    if not set(required_cols).issubset(df.columns):
+        missing = [c for c in required_cols if c not in df.columns]
+        print(f"[ERROR] Missing columns in results: {missing}. Skipping plots.", flush=True)
+        df.to_csv('entropy_vs_pool_size_multi_hops.csv', index=False)
+        return
+
+    # Order columns and save
+    df = df[required_cols]
     df.to_csv('entropy_vs_pool_size_multi_hops.csv', index=False)
     print(f"\n[ANALYSIS] Raw data saved to 'entropy_vs_pool_size_multi_hops.csv'")
     
     # Create plots
     create_multi_hops_plots(df, n_hops_values, pool_sizes)
-    
-    # Print summary table
     print_multi_hops_summary(df, n_hops_values)
 
 def create_multi_hops_plots(df, n_hops_values, pool_sizes):
