@@ -41,9 +41,11 @@ def run_simulation_with_params(corrupt_mixes, threshold, n_hops, runs=20):
 
     try:
         # Backup and swap config
-        if os.path.exists('ConfigFile_backup.ini'):
-            os.remove('ConfigFile_backup.ini')
-        os.rename('ConfigFile.ini', 'ConfigFile_backup.ini')
+        if os.path.exists('ConfigFile.ini'):
+            if os.path.exists('ConfigFile_backup.ini'):
+                os.remove('ConfigFile_backup.ini')
+            os.rename('ConfigFile.ini', 'ConfigFile_backup.ini')
+            
         os.rename(temp_config_name, 'ConfigFile.ini')
 
         for run_idx in range(1, runs + 1):
@@ -124,7 +126,7 @@ def run_parameter_sweep(runs_per_config=20):
     
     # Define parameter ranges
     corrupt_mixes_values = list(range(10, 101, 5))  # [10, 15, 20, ..., 100]
-    threshold_values = [70, 75, 80]
+    threshold_values = [60, 65, 70]
     n_hops_values = [4, 5, 6]
     
     # Calculate total combinations
@@ -172,7 +174,7 @@ def run_parameter_sweep(runs_per_config=20):
             all_results.append({
                 'corrupt_mixes': corrupt,
                 'threshold': threshold,
-                'n_hops': n_hops,
+                'n_hops': hops,
                 'mean_entropy': 0,
                 'median_entropy': 0,
                 'q25_entropy': 0,
@@ -427,12 +429,6 @@ if __name__ == "__main__":
     print("  - n_hops: 4, 5, 6")
     print("[INFO] Each combination runs 20 times for statistical significance")
     print("[WARNING] This will take several hours to complete!")
-    
-    response = input("\nProceed with full analysis? (y/n): ")
-    
-    if response.lower() != 'y':
-        print("Analysis cancelled.")
-        exit(0)
     
     start_time = time.time()
     
