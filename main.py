@@ -49,7 +49,7 @@ def main(rate):
 
     # Threat Model
     corrupt_mixes = int(config['THREATMODEL']['corrupt_mixes'])
-    balanced_corruption = bool(config['THREATMODEL']['balanced_corruption'])
+    balanced_corruption = config.getboolean('THREATMODEL', 'balanced_corruption')
 
     #Dummies
     dummies_vars = config['DUMMIES']

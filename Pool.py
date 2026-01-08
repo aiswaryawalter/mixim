@@ -59,6 +59,18 @@ class Pool(Mix):
             print(f"[DEBUG] Flushing Msg {message.id} at Mix {self.id}")
             self.messages_processed += 1
             self.update_probabilities(message)
+            # If this mix is corrupt, bypass remaining hops and send directly to the receiver
+            if self.corrupt:
+                # ensure next_hop_index points to the receiver
+                message.next_hop_index = len(message.route) - 1
+                # make sure link_delays has an entry for this hop
+                if hasattr(message, 'link_delays') and len(message.link_delays) <= message.next_hop_index - 1:
+                    message.link_delays.append(0.0)  # zero extra delay for the direct jump
+                next_hop = message.route[-1]
+                print(f"[GRID CORRUPT-MIX-CLIENT] Receiver as Next Hop {next_hop.id}")
+                self.pool.remove(message)
+                self.env.process(self.simulation.attacker.relay(message, next_hop))
+                continue
             if not isinstance(message.route[message.next_hop_index], Client) and message.route[message.next_hop_index] is None:
                 # not the last mix, for hop by hop routing
                 message.route[message.next_hop_index] = sample(self.neighbors, k=1)[0]
